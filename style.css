@@ -35,6 +35,28 @@ header h1 {
 header .subtitle {
     color: #6c757d;
     font-size: 1rem;
+    margin-bottom: 12px;
+}
+
+/* 刷新按钮 */
+.refresh-btn {
+    background: #6c757d;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.refresh-btn:hover {
+    background: #5a6268;
+}
+
+.refresh-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
 }
 
 /* 甩锅区 */

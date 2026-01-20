@@ -231,5 +231,22 @@ async function fetchData() {
     }
 }
 
+// 手动刷新数据
+function refreshData() {
+    const btn = document.querySelector('.refresh-btn');
+    const originalText = btn.textContent;
+    btn.textContent = '🔄 加载中...';
+    btn.disabled = true;
+
+    // 清除缓存，强制重新获取
+    cachedData = null;
+    lastFetchTime = 0;
+
+    fetchData().finally(() => {
+        btn.textContent = originalText;
+        btn.disabled = false;
+    });
+}
+
 // 页面加载完成后执行
 document.addEventListener('DOMContentLoaded', fetchData);
