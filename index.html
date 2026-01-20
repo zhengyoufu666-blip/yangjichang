@@ -10,51 +10,84 @@
     <div class="container">
         <header>
             <h1>🐔 养鸡场</h1>
-            <p class="subtitle">基金每日记录 · 手动买卖 / 日定投 / 其它</p>
-            <button class="refresh-btn" onclick="refreshData()">🔄 刷新数据</button>
+            <p class="subtitle">基金每日记录 · 手动买卖 / 日定投</p>
         </header>
 
         <main>
-            <!-- 甩锅区 -->
-            <div class="disclaimer" id="disclaimer" style="display: none;">
-                <div class="disclaimer-title">💬 杂七杂八的甩锅区</div>
+            <!-- 风险说明（显眼但紧凑） -->
+            <div class="disclaimer compact" id="disclaimer">
+                <div class="disclaimer-header" onclick="toggleDisclaimer()">
+                    <span>⚠️ 风险提示 · 点击展开</span>
+                    <span class="toggle-icon">▼</span>
+                </div>
                 <div class="disclaimer-content" id="disclaimer-content"></div>
             </div>
 
-            <div class="stats">
-                <div class="stat-card">
-                    <span class="stat-label">总操作</span>
-                    <span class="stat-value" id="total-operations">-</span>
+            <!-- 今日留言 -->
+            <div class="daily-note" id="daily-note" style="display: none;">
+                <div class="daily-note-title">📝 今日留言</div>
+                <div class="daily-note-content" id="daily-note-content"></div>
+            </div>
+
+            <!-- 标签切换 -->
+            <div class="tabs">
+                <button class="tab-btn active" data-tab="dca" onclick="switchTab('dca')">
+                    📊 当前定投基金
+                </button>
+                <button class="tab-btn" data-tab="manual" onclick="switchTab('manual')">
+                    💰 今日手动操作
+                </button>
+            </div>
+
+            <!-- 定投基金表格 -->
+            <div class="tab-content active" id="tab-dca">
+                <div class="table-header">
+                    <h3>当前定投基金</h3>
+                    <button class="refresh-btn" onclick="refreshData()">🔄 刷新</button>
                 </div>
-                <div class="stat-card">
-                    <span class="stat-label">买入金额</span>
-                    <span class="stat-value" id="total-buy">-</span>
-                </div>
-                <div class="stat-card">
-                    <span class="stat-label">卖出金额</span>
-                    <span class="stat-value" id="total-sell">-</span>
+                <div class="table-container">
+                    <table id="dca-table">
+                        <thead>
+                            <tr>
+                                <th>日期</th>
+                                <th>基金代码</th>
+                                <th>基金名称</th>
+                                <th>日限购</th>
+                                <th>操作</th>
+                                <th>金额</th>
+                                <th>备注</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dca-body">
+                            <tr class="loading-row"><td colspan="7">加载中...</td></tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
-            <div class="table-container">
-                <table id="records-table">
-                    <thead>
-                        <tr>
-                            <th>日期</th>
-                            <th>基金代码</th>
-                            <th>基金名称</th>
-                            <th>基金限购</th>
-                            <th>操作</th>
-                            <th>金额</th>
-                            <th>备注</th>
-                        </tr>
-                    </thead>
-                    <tbody id="records-body">
-                        <tr class="loading-row">
-                            <td colspan="7">加载中...</td>
-                        </tr>
-                    </tbody>
-                </table>
+            <!-- 手动操作表格 -->
+            <div class="tab-content" id="tab-manual">
+                <div class="table-header">
+                    <h3>今日手动操作</h3>
+                    <button class="refresh-btn" onclick="refreshData()">🔄 刷新</button>
+                </div>
+                <div class="table-container">
+                    <table id="manual-table">
+                        <thead>
+                            <tr>
+                                <th>日期</th>
+                                <th>操作类型</th>
+                                <th>基金代号</th>
+                                <th>基金名称</th>
+                                <th>金额</th>
+                                <th>备注</th>
+                            </tr>
+                        </thead>
+                        <tbody id="manual-body">
+                            <tr class="loading-row"><td colspan="6">加载中...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </main>
 
