@@ -227,34 +227,18 @@ async function fetchData() {
         if (!response.ok) throw new Error('网络请求失败');
 
         const jsonData = await response.json();
-        const sheets = parseSheetsData(jsonData);
 
-        // 按 sheet 名称查找数据
-        let dca = [], manual = [], disclaimer = '', dailyNote = '';
-
-        sheets.forEach(sheet => {
-            const sheetName = sheet.headers[0]; // 第一个单元格作为 sheet 名称
-            const rows = sheet.rows;
-
-            if (sheetName.includes('定投') || sheetName.includes('基金')) {
-                dca = rows;
-            } else if (sheetName.includes('操作') || sheetName.includes('记录')) {
-                manual = rows;
-            } else if (sheetName.includes('说明')) {
-                // 说明 sheet
-                if (rows.length > 0) {
-                    const firstRow = rows[0];
-                    const headers = sheet.headers;
-                    
-                    // 找到今日留言和风险说明列
-                    const todayIndex = headers.findIndex(h => h.includes('今日留言'));
-                    const riskIndex = headers.findIndex(h => h.includes('风险说明'));
-                    
-                    if (riskIndex >= 0) disclaimer = firstRow[headers[riskIndex]] || '';
-                    if (todayIndex >= 0) dailyNote = firstRow[headers[todayIndex]] || '';
-                }
-            }
-        });
+        // 直接按 sheet 名称获取数据
+        const dca = jsonData['定投基金'] ? jsonData['定投基金'].rows : [];
+        const manual = jsonData['操作记录'] ? jsonData['操作记录'].rows : [];
+        
+        let disclaimer = '';
+        let dailyNote = '';
+        if (jsonData['说明'] && jsonData['说明'].rows.length > 0) {
+            const firstRow = jsonData['说明'].rows[0];
+            disclaimer = firstRow['风险说明'] || '';
+            dailyNote = firstRow['今日留言'] || '';
+        }
 
         // 更新缓存
         cachedData = { dca, manual, disclaimer, dailyNote };
