@@ -1,5 +1,5 @@
-// 配置：Google Sheets 发布链接
-const GOOGLE_SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS7SWjFLCfLb9gMYK-aFZ1qXtvna6RyITzyOXYKDtNKQueRWKArcm2k6htJCVLrCoBX7TOo-KShMNRO/pub?output=csv';
+// 配置：Google Apps Script URL
+const GOOGLE_SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbyYEeA38gy8Z-GwanVleo4Sff8n-GIUmKItzPlTj9fzyH5fk_UR2cgnGhBXlSN2VBoK/exec';
 
 // 缓存数据（5分钟）
 let cachedData = null;
@@ -30,43 +30,20 @@ function parseCSVLine(line) {
     return result;
 }
 
-// 解析整个 CSV（支持多 sheet）
-function parseFullCSV(csvText) {
-    const lines = csvText.trim().split('\n');
-    const sheets = [];
-    let currentSheet = { headers: [], rows: [] };
-    let isNewSheet = true;
-
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (!line) {
-            if (currentSheet.rows.length > 0) {
-                sheets.push(currentSheet);
-                currentSheet = { headers: [], rows: [] };
-                isNewSheet = true;
-            }
-            continue;
-        }
-
-        const values = parseCSVLine(line);
-
-        if (isNewSheet) {
-            currentSheet.headers = values;
-            isNewSheet = false;
-        } else {
-            const row = {};
-            currentSheet.headers.forEach((header, index) => {
-                row[header.trim()] = values[index] ? values[index].trim() : '';
-            });
-            currentSheet.rows.push(row);
-        }
+// 解析 Google Apps Script 返回的 JSON
+function parseSheetsData(jsonData) {
+    const result = [];
+    
+    // 遍历所有 sheet
+    for (const sheetName in jsonData) {
+        const sheet = jsonData[sheetName];
+        result.push({
+            headers: sheet.headers,
+            rows: sheet.rows
+        });
     }
-
-    if (currentSheet.rows.length > 0) {
-        sheets.push(currentSheet);
-    }
-
-    return sheets;
+    
+    return result;
 }
 
 // 获取操作标签 CSS 类
@@ -245,37 +222,39 @@ async function fetchData() {
     }
 
     try {
-        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(GOOGLE_SHEET_CSV_URL)}`;
-        const response = await fetch(proxyUrl);
+        const response = await fetch(GOOGLE_SHEET_API_URL);
 
         if (!response.ok) throw new Error('网络请求失败');
 
-        const csvText = await response.text();
-        const sheets = parseFullCSV(csvText);
+        const jsonData = await response.json();
+        const sheets = parseSheetsData(jsonData);
 
-        // Sheet1: 定投基金
-        const dca = sheets[0] ? sheets[0].rows : [];
+        // 按 sheet 名称查找数据
+        let dca = [], manual = [], disclaimer = '', dailyNote = '';
 
-        // Sheet2: 操作说明
-        const manual = sheets[1] ? sheets[1].rows : [];
+        sheets.forEach(sheet => {
+            const sheetName = sheet.headers[0]; // 第一个单元格作为 sheet 名称
+            const rows = sheet.rows;
 
-        // Sheet3: 说明
-        let disclaimer = '';
-        let dailyNote = '';
-        if (sheets[2] && sheets[2].rows.length > 0) {
-            const headers = sheets[2].headers;
-            const firstRow = sheets[2].rows[0];
-
-            // 第一列是今日留言，第二列是风险说明
-            const col1 = headers[0];  // 今日留言
-            const col2 = headers[1];  // 风险说明
-
-            // 风险说明（第二列）
-            disclaimer = firstRow[col2] || '';
-
-            // 今日留言（第一行第一列）
-            dailyNote = firstRow[col1] || '';
-        }
+            if (sheetName.includes('定投') || sheetName.includes('基金')) {
+                dca = rows;
+            } else if (sheetName.includes('操作') || sheetName.includes('记录')) {
+                manual = rows;
+            } else if (sheetName.includes('说明')) {
+                // 说明 sheet
+                if (rows.length > 0) {
+                    const firstRow = rows[0];
+                    const headers = sheet.headers;
+                    
+                    // 找到今日留言和风险说明列
+                    const todayIndex = headers.findIndex(h => h.includes('今日留言'));
+                    const riskIndex = headers.findIndex(h => h.includes('风险说明'));
+                    
+                    if (riskIndex >= 0) disclaimer = firstRow[headers[riskIndex]] || '';
+                    if (todayIndex >= 0) dailyNote = firstRow[headers[todayIndex]] || '';
+                }
+            }
+        });
 
         // 更新缓存
         cachedData = { dca, manual, disclaimer, dailyNote };
