@@ -259,26 +259,22 @@ async function fetchData() {
         // Sheet2: 操作说明
         const manual = sheets[1] ? sheets[1].rows : [];
 
-        // Sheet3: 说明（取第三行第三列作为今日留言）
+        // Sheet3: 说明
         let disclaimer = '';
         let dailyNote = '';
         if (sheets[2] && sheets[2].rows.length > 0) {
             const headers = sheets[2].headers;
             const firstRow = sheets[2].rows[0];
 
-            // 找说明列（第一列）和内容列
-            const titleCol = headers[0];
-            const contentCol = headers[1];
+            // 第一列是今日留言，第二列是风险说明
+            const col1 = headers[0];  // 今日留言
+            const col2 = headers[1];  // 风险说明
 
-            if (titleCol && titleCol.includes('说明')) {
-                disclaimer = firstRow[contentCol] || '';
-            }
+            // 风险说明（第二列）
+            disclaimer = firstRow[col2] || '';
 
-            // 今日留言（第三行）
-            if (sheets[2].rows.length >= 3) {
-                const thirdRow = sheets[2].rows[2];
-                dailyNote = thirdRow[contentCol] || '';
-            }
+            // 今日留言（第一行第一列）
+            dailyNote = firstRow[col1] || '';
         }
 
         // 更新缓存
