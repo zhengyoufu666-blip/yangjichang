@@ -131,15 +131,53 @@ function formatImageContent(content) {
     const matches = content.toString().match(imageRegex);
     
     if (matches && matches.length > 0) {
-        return matches.map(url => 
+        return matches.map((url, index) => 
             `<div class="image-cell">
-                <img src="${url}" alt="操作截图" loading="lazy">
+                <img src="${url}" alt="操作截图" loading="lazy" onclick="openImageModal('${url}')">
             </div>`
         ).join('');
     }
     
     return content.toString();
 }
+
+// 打开图片模态框
+function openImageModal(imageUrl) {
+    // 创建模态框
+    const modal = document.createElement('div');
+    modal.className = 'image-modal';
+    modal.innerHTML = `
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeImageModal()">&times;</span>
+            <img src="${imageUrl}" alt="放大图片">
+        </div>
+    `;
+    
+    // 添加到页面
+    document.body.appendChild(modal);
+    
+    // 点击背景关闭
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            closeImageModal();
+        }
+    });
+}
+
+// 关闭图片模态框
+function closeImageModal() {
+    const modal = document.querySelector('.image-modal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+// 按ESC关闭图片
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeImageModal();
+    }
+});
 
 // 渲染定投基金表格
 function renderDCATable(data) {
