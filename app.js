@@ -107,6 +107,49 @@ function renderDailyNote(content) {
     }
 }
 
+// 获取风险等级
+function getRiskLevel(fundName, operation) {
+    const name = (fundName || '').toLowerCase();
+    const op = (operation || '').toLowerCase();
+    
+    if (name.includes('高风险') || name.includes('杠杆') || name.includes('期货')) {
+        return 'high';
+    }
+    
+    if (name.includes('纳斯达克') || name.includes('美股') || name.includes('海外')) {
+        return 'high';
+    }
+    
+    if (name.includes('债券') || name.includes('货币') || name.includes('红利')) {
+        return 'low';
+    }
+    
+    if (op.includes('定投')) {
+        return 'medium';
+    }
+    
+    return 'medium';
+}
+
+// 格式化图片链接
+function formatImageContent(content) {
+    if (!content) return '';
+    
+    // 检查是否包含图片链接
+    const imageRegex = /(https?:\/\/[^\s]+\.(jpg|jpeg|png|gif|webp))/gi;
+    const matches = content.match(imageRegex);
+    
+    if (matches && matches.length > 0) {
+        return matches.map(url => 
+            `<div class="image-cell">
+                <img src="${url}" alt="操作截图" loading="lazy">
+            </div>`
+        ).join('');
+    }
+    
+    return content;
+}
+
 // 渲染定投基金表格
 function renderDCATable(data) {
     const tbody = document.getElementById('dca-body');
@@ -116,7 +159,12 @@ function renderDCATable(data) {
         return;
     }
 
-    tbody.innerHTML = data.map(row => `
+        tbody.innerHTML = data.map(row => {
+        const riskLevel = getRiskLevel(row['基金名称'] || row['基金名称'], row['操作'] || row['操作']);
+        const riskClass = `risk-${riskLevel}`;
+        const riskText = riskLevel === 'low' ? '一般' : (riskLevel === 'high' ? '高风险' : '中等');
+        
+        return `
         <tr>
             <td>${formatDate(row['日期'] || row['日期'])}</td>
             <td><code>${row['基金代码'] || row['基金代码'] || '-'}</code></td>
@@ -129,13 +177,46 @@ function renderDCATable(data) {
             </td>
             <td>${formatCurrency(row['金额'] || row['金额'])}</td>
             <td>${row['备注'] || row['备注'] || '-'}</td>
+            <td>
+                <span class="operation-tag ${riskClass}">
+                    ${riskText}
+                </span>
+            </td>
+        </tr>
+    `;
+    }).join('');
+}
+
+// 渲染主动操作表格
+function renderManualTable(data) {
+    const tbody = document.getElementById('manual-body');
+
+    if (!data || data.length === 0) {
+        tbody.innerHTML = '<tr class="empty-state"><td colspan="5">暂无操作记录</td></tr>';
+        return;
+    }
+
+    // 按日期倒序（最新的在前）
+    const sortedData = [...data].sort((a, b) => {
+        const dateA = (a['操作时间'] || a['操作时间'] || '').replace(/[^\d]/g, '');
+        const dateB = (b['操作时间'] || b['操作时间'] || '').replace(/[^\d]/g, '');
+        return dateB.localeCompare(dateA);
+    });
+
+        tbody.innerHTML = sortedData.map(row => `
+        <tr>
+            <td>${formatDate(row['操作时间'] || row['操作时间'])}</td>
+            <td>${formatImageContent(row['每日定投'] || row['每日定投'])}</td>
+            <td>${formatImageContent(row['买入操作'] || row['买入操作'])}</td>
+            <td>${formatImageContent(row['卖出操作'] || row['卖出操作'])}</td>
+            <td>${row['当日留言'] || row['当日留言'] || '-'}</td>
         </tr>
     `).join('');
 }
 
-// 渲染手动操作表格
-function renderManualTable(data) {
-    const tbody = document.getElementById('manual-body');
+// 渲染历史操作记录表格
+function renderDailyTable(data) {
+    const tbody = document.getElementById('daily-body');
 
     if (!data || data.length === 0) {
         tbody.innerHTML = '<tr class="empty-state"><td colspan="6">暂无操作记录</td></tr>';
@@ -224,9 +305,9 @@ async function fetchData() {
     if (cachedData && (now - lastFetchTime) < CACHE_DURATION) {
         console.log('使用缓存数据');
         renderDCATable(cachedData.dca);
-        renderManualTable(cachedData.manual);
+        renderManualTable(cachedData.active);
+        renderDailyTable(cachedData.manual);
         renderDisclaimer(cachedData.disclaimer);
-        renderDailyNote(cachedData.dailyNote);
         updateLastUpdateTime();
         return;
     }
@@ -241,6 +322,7 @@ async function fetchData() {
         // 直接按 sheet 名称获取数据
         const dca = jsonData['定投基金'] ? jsonData['定投基金'].rows : [];
         const manual = jsonData['操作记录'] ? jsonData['操作记录'].rows : [];
+        const active = jsonData['主动操作'] ? jsonData['主动操作'].rows : [];
         
         let disclaimer = '';
         let dailyNote = '';
@@ -251,14 +333,14 @@ async function fetchData() {
         }
 
         // 更新缓存
-        cachedData = { dca, manual, disclaimer, dailyNote };
+        cachedData = { dca, manual, active, disclaimer, dailyNote };
         lastFetchTime = now;
 
         // 渲染
         renderDCATable(dca);
-        renderManualTable(manual);
+        renderManualTable(active);  // 主动操作
+        renderDailyTable(manual);  // 历史记录
         renderDisclaimer(disclaimer);
-        renderDailyNote(dailyNote);
         updateLastUpdateTime();
 
     } catch (error) {

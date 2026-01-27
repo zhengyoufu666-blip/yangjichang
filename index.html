@@ -23,26 +23,23 @@
                 <div class="disclaimer-content" id="disclaimer-content"></div>
             </div>
 
-            <!-- 今日留言 -->
-            <div class="daily-note" id="daily-note" style="display: none;">
-                <div class="daily-note-title">📝 今日留言</div>
-                <div class="daily-note-content" id="daily-note-content"></div>
-            </div>
-
             <!-- 标签切换 -->
             <div class="tabs">
-                <button class="tab-btn active" data-tab="dca" onclick="switchTab('dca')">
-                    📊 当前定投基金
+                <button class="tab-btn" data-tab="dca" onclick="switchTab('dca')">
+                    📊 当前持仓
                 </button>
-                <button class="tab-btn" data-tab="manual" onclick="switchTab('manual')">
-                    💰 今日手动操作
+                <button class="tab-btn active" data-tab="manual" onclick="switchTab('manual')">
+                    💰 主动操作
+                </button>
+                <button class="tab-btn" data-tab="daily" onclick="switchTab('daily')">
+                    📝 每日记录
                 </button>
             </div>
 
-            <!-- 定投基金表格 -->
-            <div class="tab-content active" id="tab-dca">
+            <!-- 当前持仓表格 -->
+            <div class="tab-content" id="tab-dca">
                 <div class="table-header">
-                    <h3>当前定投基金</h3>
+                    <h3>当前持仓基金</h3>
                     <button class="refresh-btn" onclick="refreshData()">🔄 刷新</button>
                 </div>
                 <div class="table-container">
@@ -56,23 +53,48 @@
                                 <th>操作</th>
                                 <th>金额</th>
                                 <th>备注</th>
+                                <th>风险等级</th>
                             </tr>
                         </thead>
                         <tbody id="dca-body">
-                            <tr class="loading-row"><td colspan="7">加载中...</td></tr>
+                            <tr class="loading-row"><td colspan="8">加载中...</td></tr>
                         </tbody>
                     </table>
                 </div>
             </div>
 
-            <!-- 手动操作表格 -->
-            <div class="tab-content" id="tab-manual">
+            <!-- 主动操作表格 -->
+            <div class="tab-content active" id="tab-manual">
                 <div class="table-header">
-                    <h3>今日手动操作</h3>
+                    <h3>主动操作</h3>
                     <button class="refresh-btn" onclick="refreshData()">🔄 刷新</button>
                 </div>
                 <div class="table-container">
                     <table id="manual-table">
+                        <thead>
+                            <tr>
+                                <th>操作时间</th>
+                                <th>每日定投</th>
+                                <th>买入操作</th>
+                                <th>卖出操作</th>
+                                <th>当日留言</th>
+                            </tr>
+                        </thead>
+                        <tbody id="manual-body">
+                            <tr class="loading-row"><td colspan="5">加载中...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 每日记录表格 -->
+            <div class="tab-content" id="tab-daily">
+                <div class="table-header">
+                    <h3>历史操作记录</h3>
+                    <button class="refresh-btn" onclick="refreshData()">🔄 刷新</button>
+                </div>
+                <div class="table-container">
+                    <table id="daily-table">
                         <thead>
                             <tr>
                                 <th>日期</th>
@@ -83,7 +105,7 @@
                                 <th>备注</th>
                             </tr>
                         </thead>
-                        <tbody id="manual-body">
+                        <tbody id="daily-body">
                             <tr class="loading-row"><td colspan="6">加载中...</td></tr>
                         </tbody>
                     </table>

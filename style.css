@@ -262,6 +262,35 @@ tbody tr:last-child td {
     color: #721c24;
 }
 
+/* 风险等级背景色 */
+.risk-low {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.risk-medium {
+    background-color: #fff3cd;
+    color: #856404;
+}
+
+.risk-high {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+/* 图片容器 */
+.image-cell img {
+    max-width: 80px;
+    max-height: 60px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+.image-cell img:hover {
+    transform: scale(1.5);
+}
+
 /* 加载和空状态 */
 .loading-row td,
 .empty-state td {
