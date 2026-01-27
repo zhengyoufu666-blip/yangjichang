@@ -58,7 +58,17 @@ function getOperationClass(operation) {
 // 格式化金额
 function formatCurrency(amount) {
     if (!amount || amount === '-') return '-';
-    const num = parseFloat(amount.replace(/[^\d.-]/g, ''));
+    
+    // 处理数字类型
+    if (typeof amount === 'number') {
+        return '¥' + amount.toLocaleString('zh-CN', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+    }
+    
+    // 处理字符串类型
+    const num = parseFloat(amount.toString().replace(/[^\d.-]/g, ''));
     if (isNaN(num)) return amount;
     return '¥' + num.toLocaleString('zh-CN', {
         minimumFractionDigits: 2,
