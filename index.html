@@ -46,9 +46,9 @@
                                 <th>日期</th>
                                 <th>基金代码</th>
                                 <th>基金名称</th>
-                                <th>日限购 <span class="sort-arrow" data-sort="limit" onclick="sortTable('limit')">↕</span></th>
+                                <th>日限购</th>
                                 <th>操作</th>
-                                <th>金额 <span class="sort-arrow" data-sort="amount" onclick="sortTable('amount')">↕</span></th>
+                                <th>金额</th>
                                 <th>备注</th>
                             </tr>
                         </thead>
@@ -63,15 +63,14 @@
             <div class="tab-content active" id="tab-manual">
                 <div class="table-header">
                     <h3>主动操作</h3>
-                    <div class="table-controls">
-                        <select class="filter-select" id="dateFilter" onchange="filterActiveData()">
-                            <option value="all">全部时间</option>
-                            <option value="today">今天</option>
-                            <option value="yesterday">昨天</option>
-                            <option value="week">近7天</option>
-                        </select>
-                        <button class="refresh-btn" onclick="refreshData()">🔄 刷新</button>
+                    <div class="operation-filter" id="operationFilter">
+                        <button class="filter-btn" onclick="filterOperations('all')" data-filter="all">全部</button>
+                        <button class="filter-btn" onclick="filterOperations('推荐定投')" data-filter="推荐定投">推荐定投</button>
+                        <button class="filter-btn" onclick="filterOperations('一般')" data-filter="一般">一般</button>
+                        <button class="filter-btn" onclick="filterOperations('风险较高')" data-filter="风险较高">风险较高</button>
+                        <button class="filter-btn" onclick="filterOperations('暂时别买')" data-filter="暂时别买">暂时别买</button>
                     </div>
+                    <button class="refresh-btn" onclick="refreshData()">🔄 刷新</button>
                 </div>
                 <div class="table-container">
                     <table id="manual-table">

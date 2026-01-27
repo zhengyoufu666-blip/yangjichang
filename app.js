@@ -9,8 +9,14 @@ const CACHE_DURATION = 5 * 60 * 1000;
 // 当前显示的标签
 let currentTab = 'dca';
 
+// 当前操作筛选状态
+let currentOperationFilter = 'all';
+
 // 当前排序状态
-let currentSort = { field: null, direction: 'desc' };
+let currentSort = {
+    field: null,
+    direction: 'desc'
+};
 
 // 当前筛选状态
 let currentFilter = 'all';
@@ -125,30 +131,81 @@ document.addEventListener('keydown', function(e) {
     }
 });
 
-// 获取日期筛选数据
-function getFilteredData(data) {
-    if (currentFilter === 'all') return data;
+// 操作筛选功能
+function filterOperations(filterType) {
+    currentOperationFilter = filterType;
     
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    
-    return data.filter(row => {
-        const rowDate = parseDate(row['操作时间'] || '');
-        if (!rowDate) return false;
-        
-        switch (currentFilter) {
-            case 'today':
-                return isSameDay(rowDate, today);
-            case 'yesterday':
-                const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
-                return isSameDay(rowDate, yesterday);
-            case 'week':
-                const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-                return rowDate >= weekAgo;
-            default:
-                return true;
-        }
+    // 更新按钮状态
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.filter === filterType);
     });
+    
+    renderDCATable(cachedData.dca);
+}
+
+// 渲染定投基金表格
+function renderDCATable(data) {
+    const tbody = document.getElementById('dca-body');
+
+    if (!data || data.length === 0) {
+        tbody.innerHTML = '<tr class="empty-state"><td colspan="7">暂无定投记录</td></tr>';
+        return;
+    }
+
+    // 先筛选，再排序
+    let filteredData = data;
+    if (currentOperationFilter !== 'all') {
+        filteredData = data.filter(row => {
+            const operation = (row['操作'] || '').trim();
+            return operation === currentOperationFilter;
+        });
+    }
+
+    if (!filteredData || filteredData.length === 0) {
+        tbody.innerHTML = '<tr class="empty-state"><td colspan="7">暂无符合条件的定投记录</td></tr>';
+        return;
+    }
+
+    // 排序
+    let sortedData = [...filteredData];
+    if (currentSort.field) {
+        sortedData.sort((a, b) => {
+            let aVal = a[currentSort.field] || '';
+            let bVal = b[currentSort.field] || '';
+            
+            // 特殊处理数字字段
+            if (currentSort.field === '金额' || currentSort.field === '基金限购') {
+                aVal = parseFloat(aVal.toString().replace(/[^\d.-]/g, '')) || 0;
+                bVal = parseFloat(bVal.toString().replace(/[^\d.-]/g, '')) || 0;
+            }
+            
+            if (currentSort.direction === 'asc') {
+                return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
+            } else {
+                return aVal < bVal ? 1 : aVal > bVal ? -1 : 0;
+            }
+        });
+    }
+
+    tbody.innerHTML = sortedData.map(row => {
+        const bgClass = getOperationBackgroundClass(row['操作'] || '');
+        
+        return `
+        <tr>
+            <td>${formatDate(row['日期'] || '')}</td>
+            <td><code>${row['基金代码'] || '-'}</code></td>
+            <td>${row['基金名称'] || '-'}</td>
+            <td>${row['基金限购'] || '-'}</td>
+            <td>
+                <span class="operation-tag ${bgClass}">
+                    ${row['操作'] || '-'}
+                </span>
+            </td>
+            <td>${formatCurrency(row['金额'] || '')}</td>
+            <td>${row['备注'] || '-'}</td>
+        </tr>
+    `;
+    }).join('');
 }
 
 // 检查是否同一天
@@ -195,72 +252,20 @@ function sortTable(field) {
     renderDCATable(cachedData.dca);
 }
 
-// 筛选功能
-function filterActiveData() {
-    currentFilter = document.getElementById('dateFilter').value;
-    renderManualTable(cachedData.active);
-}
 
-// 渲染定投基金表格
-function renderDCATable(data) {
-    const tbody = document.getElementById('dca-body');
 
-    if (!data || data.length === 0) {
-        tbody.innerHTML = '<tr class="empty-state"><td colspan="7">暂无定投记录</td></tr>';
-        return;
-    }
 
-    let sortedData = [...data];
-    if (currentSort.field) {
-        sortedData.sort((a, b) => {
-            let aVal = a[currentSort.field] || '';
-            let bVal = b[currentSort.field] || '';
-            
-            if (currentSort.field === 'amount' || currentSort.field === 'limit') {
-                aVal = parseFloat(aVal.toString().replace(/[^\d.-]/g, '')) || 0;
-                bVal = parseFloat(bVal.toString().replace(/[^\d.-]/g, '')) || 0;
-            }
-            
-            if (currentSort.direction === 'asc') {
-                return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
-            } else {
-                return aVal < bVal ? 1 : aVal > bVal ? -1 : 0;
-            }
-        });
-    }
-
-    tbody.innerHTML = sortedData.map(row => {
-        const bgClass = getOperationBackgroundClass(row['操作'] || '');
-        
-        return `
-        <tr>
-            <td>${formatDate(row['日期'] || '')}</td>
-            <td><code>${row['基金代码'] || '-'}</code></td>
-            <td>${row['基金名称'] || '-'}</td>
-            <td>${row['基金限购'] || '-'}</td>
-            <td>
-                <span class="operation-tag ${bgClass}">
-                    ${row['操作'] || '-'}
-                </span>
-            </td>
-            <td>${formatCurrency(row['金额'] || '')}</td>
-            <td>${row['备注'] || '-'}</td>
-        </tr>
-    `;
-    }).join('');
-}
 
 // 渲染主动操作表格
 function renderManualTable(data) {
     const tbody = document.getElementById('manual-body');
-    const filteredData = getFilteredData(data);
 
-    if (!filteredData || filteredData.length === 0) {
+    if (!data || data.length === 0) {
         tbody.innerHTML = '<tr class="empty-state"><td colspan="5">暂无操作记录</td></tr>';
         return;
     }
 
-    const sortedData = [...filteredData].sort((a, b) => {
+    const sortedData = [...data].sort((a, b) => {
         const dateA = (a['操作时间'] || '').replace(/[^\d]/g, '');
         const dateB = (b['操作时间'] || '').replace(/[^\d]/g, '');
         return dateB.localeCompare(dateA);
