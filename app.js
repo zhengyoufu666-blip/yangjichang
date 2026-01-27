@@ -438,9 +438,10 @@ async function fetchData() {
             dailyNote = firstRow['今日留言'] || '';
         }
 
-        // 更新缓存
-        cachedData = { dca, manual, disclaimer, dailyNote };
-        lastFetchTime = now;
+    // 更新缓存
+    const newCacheData = { dca, manual, disclaimer, dailyNote };
+    cachedData = newCacheData;
+    lastFetchTime = now;
 
         // 渲染
         renderDCATable(dca);
