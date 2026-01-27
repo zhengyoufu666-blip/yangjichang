@@ -1,5 +1,5 @@
 // 配置：Google Apps Script URL
-const GOOGLE_SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbyYEeA38gy8Z-GwanVleo4Sff8n-GIUmKItzPlTj9fzyH5fk_UR2cgnGhBXlSN2VBoK/exec';
+const GOOGLE_SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbyDmyVuRF3vUHUGsPDHjdx8fNiqv86oAXr8lyi0NcvBJylAcXwReXjn0mXjHRrVYpA5/exec';
 
 // 缓存数据（5分钟）
 let cachedData = null;
@@ -107,37 +107,28 @@ function renderDailyNote(content) {
     }
 }
 
-// 获取风险等级
-function getRiskLevel(fundName, operation) {
-    const name = (fundName || '').toLowerCase();
+// 获取操作标签背景色
+function getOperationBackgroundClass(operation) {
     const op = (operation || '').toLowerCase();
-    
-    if (name.includes('高风险') || name.includes('杠杆') || name.includes('期货')) {
-        return 'high';
-    }
-    
-    if (name.includes('纳斯达克') || name.includes('美股') || name.includes('海外')) {
-        return 'high';
-    }
-    
-    if (name.includes('债券') || name.includes('货币') || name.includes('红利')) {
-        return 'low';
-    }
-    
-    if (op.includes('定投')) {
-        return 'medium';
-    }
-    
-    return 'medium';
+    if (op.includes('推荐定投')) return 'bg-recommend';
+    if (op.includes('一般')) return 'bg-normal';
+    if (op.includes('风险较高')) return 'bg-risk';
+    if (op.includes('暂时别买')) return 'bg-stop';
+    return '';
 }
 
 // 格式化图片链接
 function formatImageContent(content) {
     if (!content) return '';
     
+    // 如果是图片对象类型，显示占位符
+    if (typeof content === 'object' && content.valueType === 'IMAGE') {
+        return '<span class="image-placeholder">📷 待上传图片</span>';
+    }
+    
     // 检查是否包含图片链接
     const imageRegex = /(https?:\/\/[^\s]+\.(jpg|jpeg|png|gif|webp))/gi;
-    const matches = content.match(imageRegex);
+    const matches = content.toString().match(imageRegex);
     
     if (matches && matches.length > 0) {
         return matches.map(url => 
@@ -147,7 +138,7 @@ function formatImageContent(content) {
         ).join('');
     }
     
-    return content;
+    return content.toString();
 }
 
 // 渲染定投基金表格
@@ -160,9 +151,7 @@ function renderDCATable(data) {
     }
 
         tbody.innerHTML = data.map(row => {
-        const riskLevel = getRiskLevel(row['基金名称'] || row['基金名称'], row['操作'] || row['操作']);
-        const riskClass = `risk-${riskLevel}`;
-        const riskText = riskLevel === 'low' ? '一般' : (riskLevel === 'high' ? '高风险' : '中等');
+        const bgClass = getOperationBackgroundClass(row['操作'] || row['操作']);
         
         return `
         <tr>
@@ -171,17 +160,12 @@ function renderDCATable(data) {
             <td>${row['基金名称'] || row['基金名称'] || '-'}</td>
             <td>${row['基金限购'] || row['基金限购'] || '-'}</td>
             <td>
-                <span class="operation-tag ${getOperationClass(row['操作'] || row['操作'])}">
+                <span class="operation-tag ${bgClass}">
                     ${row['操作'] || row['操作'] || '-'}
                 </span>
             </td>
             <td>${formatCurrency(row['金额'] || row['金额'])}</td>
             <td>${row['备注'] || row['备注'] || '-'}</td>
-            <td>
-                <span class="operation-tag ${riskClass}">
-                    ${riskText}
-                </span>
-            </td>
         </tr>
     `;
     }).join('');
@@ -306,7 +290,6 @@ async function fetchData() {
         console.log('使用缓存数据');
         renderDCATable(cachedData.dca);
         renderManualTable(cachedData.active);
-        renderDailyTable(cachedData.manual);
         renderDisclaimer(cachedData.disclaimer);
         updateLastUpdateTime();
         return;
@@ -333,13 +316,12 @@ async function fetchData() {
         }
 
         // 更新缓存
-        cachedData = { dca, manual, active, disclaimer, dailyNote };
+        cachedData = { dca, manual, disclaimer, dailyNote };
         lastFetchTime = now;
 
         // 渲染
         renderDCATable(dca);
         renderManualTable(active);  // 主动操作
-        renderDailyTable(manual);  // 历史记录
         renderDisclaimer(disclaimer);
         updateLastUpdateTime();
 
