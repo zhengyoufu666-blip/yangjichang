@@ -12,15 +12,6 @@ let currentTab = 'dca';
 // 当前操作筛选状态
 let currentOperationFilter = 'all';
 
-// 当前排序状态
-let currentSort = {
-    field: null,
-    direction: 'desc'
-};
-
-// 当前筛选状态
-let currentFilter = 'all';
-
 // 获取操作标签背景色
 function getOperationBackgroundClass(operation) {
     const op = (operation || '').toLowerCase();
@@ -152,7 +143,6 @@ function renderDCATable(data) {
         return;
     }
 
-    // 先筛选，再排序
     let filteredData = data;
     if (currentOperationFilter !== 'all') {
         filteredData = data.filter(row => {
@@ -166,28 +156,7 @@ function renderDCATable(data) {
         return;
     }
 
-    // 排序
-    let sortedData = [...filteredData];
-    if (currentSort.field) {
-        sortedData.sort((a, b) => {
-            let aVal = a[currentSort.field] || '';
-            let bVal = b[currentSort.field] || '';
-            
-            // 特殊处理数字字段
-            if (currentSort.field === '金额' || currentSort.field === '基金限购') {
-                aVal = parseFloat(aVal.toString().replace(/[^\d.-]/g, '')) || 0;
-                bVal = parseFloat(bVal.toString().replace(/[^\d.-]/g, '')) || 0;
-            }
-            
-            if (currentSort.direction === 'asc') {
-                return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
-            } else {
-                return aVal < bVal ? 1 : aVal > bVal ? -1 : 0;
-            }
-        });
-    }
-
-    tbody.innerHTML = sortedData.map(row => {
+    tbody.innerHTML = filteredData.map(row => {
         const bgClass = getOperationBackgroundClass(row['操作'] || '');
         
         return `
@@ -252,9 +221,60 @@ function sortTable(field) {
     renderDCATable(cachedData.dca);
 }
 
+// 筛选功能
+function filterActiveData() {
+    currentFilter = document.getElementById('dateFilter').value;
+    renderManualTable(cachedData.active);
+}
 
+// 渲染定投基金表格
+function renderDCATable(data) {
+    const tbody = document.getElementById('dca-body');
 
+    if (!data || data.length === 0) {
+        tbody.innerHTML = '<tr class="empty-state"><td colspan="7">暂无定投记录</td></tr>';
+        return;
+    }
 
+    let sortedData = [...data];
+    if (currentSort.field) {
+        sortedData.sort((a, b) => {
+            let aVal = a[currentSort.field] || '';
+            let bVal = b[currentSort.field] || '';
+            
+            if (currentSort.field === 'amount' || currentSort.field === 'limit') {
+                aVal = parseFloat(aVal.toString().replace(/[^\d.-]/g, '')) || 0;
+                bVal = parseFloat(bVal.toString().replace(/[^\d.-]/g, '')) || 0;
+            }
+            
+            if (currentSort.direction === 'asc') {
+                return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
+            } else {
+                return aVal < bVal ? 1 : aVal > bVal ? -1 : 0;
+            }
+        });
+    }
+
+    tbody.innerHTML = sortedData.map(row => {
+        const bgClass = getOperationBackgroundClass(row['操作'] || '');
+        
+        return `
+        <tr>
+            <td>${formatDate(row['日期'] || '')}</td>
+            <td><code>${row['基金代码'] || '-'}</code></td>
+            <td>${row['基金名称'] || '-'}</td>
+            <td>${row['基金限购'] || '-'}</td>
+            <td>
+                <span class="operation-tag ${bgClass}">
+                    ${row['操作'] || '-'}
+                </span>
+            </td>
+            <td>${formatCurrency(row['金额'] || '')}</td>
+            <td>${row['备注'] || '-'}</td>
+        </tr>
+    `;
+    }).join('');
+}
 
 // 渲染主动操作表格
 function renderManualTable(data) {
