@@ -147,79 +147,12 @@ header .subtitle {
     display: block;
 }
 
-/* 筛选按钮组 */
-.operation-filter {
-    display: flex;
-    gap: 8px;
-    margin-right: 16px;
-}
-
-.filter-btn {
-    padding: 6px 12px;
-    border: 1px solid #e9ecef;
-    background: white;
-    border-radius: 6px;
-    font-size: 0.8125rem;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    white-space: nowrap;
-}
-
-.filter-btn:hover {
-    border-color: #adb5bd;
-    background: #f8f9fa;
-}
-
-.filter-btn.active {
-    border-color: #007bff;
-    color: white;
-    background: #007bff;
-}
-
 /* 表格头部区域 */
 .table-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 12px;
-    flex-wrap: wrap;
-    gap: 16px;
-}
-
-.table-header h3 {
-    font-size: 1rem;
-    color: #2c3e50;
-    font-weight: 600;
-}
-
-/* 筛选按钮组 */
-.sort-arrow {
-    cursor: pointer;
-    font-size: 0.75rem;
-    margin-left: 4px;
-    transition: transform 0.2s ease;
-}
-
-.sort-arrow.asc {
-    transform: rotate(180deg);
-}
-
-.sort-arrow.desc {
-    transform: rotate(0deg);
-}
-
-.sort-arrow:hover {
-    color: #007bff;
-}
-
-th.sortable {
-    cursor: pointer;
-    user-select: none;
-    transition: background-color 0.2s ease;
-}
-
-th.sortable:hover {
-    background-color: #f1f3f5;
 }
 
 .table-header h3 {
@@ -275,7 +208,6 @@ th {
     text-transform: uppercase;
     letter-spacing: 0.5px;
     border-bottom: 2px solid #e9ecef;
-    position: relative;
 }
 
 td {
