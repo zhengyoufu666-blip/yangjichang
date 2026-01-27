@@ -153,6 +153,58 @@ header .subtitle {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 12px;
+    gap: 16px;
+}
+
+.table-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.filter-select {
+    padding: 6px 12px;
+    border: 2px solid #e9ecef;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    background: white;
+    cursor: pointer;
+    transition: border-color 0.2s ease;
+}
+
+.filter-select:focus {
+    outline: none;
+    border-color: #007bff;
+}
+
+/* 排序箭头 */
+.sort-arrow {
+    cursor: pointer;
+    font-size: 0.75rem;
+    margin-left: 4px;
+    transition: transform 0.2s ease;
+}
+
+.sort-arrow.asc {
+    transform: rotate(180deg);
+}
+
+.sort-arrow.desc {
+    transform: rotate(0deg);
+}
+
+.sort-arrow:hover {
+    color: #007bff;
+}
+
+th.sortable {
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.2s ease;
+}
+
+th.sortable:hover {
+    background-color: #f1f3f5;
 }
 
 .table-header h3 {
@@ -208,6 +260,7 @@ th {
     text-transform: uppercase;
     letter-spacing: 0.5px;
     border-bottom: 2px solid #e9ecef;
+    position: relative;
 }
 
 td {

@@ -76,7 +76,70 @@ function formatCurrency(amount) {
     });
 }
 
-// 格式化日期（去掉年份）
+// 当前排序状态
+let currentSort = { field: null, direction: 'desc' };
+
+// 当前筛选状态
+let currentFilter = 'all';
+
+// 获取日期筛选数据
+function getFilteredData(data) {
+    if (currentFilter === 'all') return data;
+    
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    return data.filter(row => {
+        const rowDate = parseDate(row['操作时间'] || row['操作时间']);
+        if (!rowDate) return false;
+        
+        switch (currentFilter) {
+            case 'today':
+                return isSameDay(rowDate, today);
+            case 'yesterday':
+                const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+                return isSameDay(rowDate, yesterday);
+            case 'week':
+                const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+                return rowDate >= weekAgo;
+            default:
+                return true;
+        }
+    });
+}
+
+// 检查是否同一天
+function isSameDay(date1, date2) {
+    return date1.getFullYear() === date2.getFullYear() &&
+           date1.getMonth() === date2.getMonth() &&
+           date1.getDate() === date2.getDate();
+}
+
+// 解析日期字符串
+function parseDate(dateStr) {
+    if (!dateStr) return null;
+    
+    const cleaned = dateStr.replace(/[^\d]/g, '');
+    if (cleaned.length === 4) { // 月日格式
+        const currentYear = new Date().getFullYear();
+        return new Date(currentYear, parseInt(cleaned.substring(0, 2)) - 1, parseInt(cleaned.substring(2)));
+    } else if (cleaned.length === 8) { // 完整日期
+        return new Date(
+            parseInt(cleaned.substring(0, 4)),
+            parseInt(cleaned.substring(4, 6)) - 1,
+            parseInt(cleaned.substring(6))
+        );
+    }
+    // 格式化日期（去掉年份）
+function formatDate(dateStr) {
+    if (!dateStr) return '-';
+    // 如果是 20240115 这种格式，只取月日
+    const cleaned = dateStr.replace(/[^\d]/g, '');
+    if (cleaned.length === 8) {
+        return cleaned.slice(4); // 取月日
+    }
+    return dateStr;
+}
 function formatDate(dateStr) {
     if (!dateStr) return '-';
     // 如果是 20240115 这种格式，只取月日
@@ -188,7 +251,28 @@ function renderDCATable(data) {
         return;
     }
 
-        tbody.innerHTML = data.map(row => {
+    // 排序数据
+    let sortedData = [...data];
+    if (currentSort.field) {
+        sortedData.sort((a, b) => {
+            let aVal = a[currentSort.field] || '';
+            let bVal = b[currentSort.field] || '';
+            
+            // 处理数字类型排序
+            if (currentSort.field === 'amount' || currentSort.field === 'limit') {
+                aVal = parseFloat(aVal.toString().replace(/[^\d.-]/g, '')) || 0;
+                bVal = parseFloat(bVal.toString().replace(/[^\d.-]/g, '')) || 0;
+            }
+            
+            if (currentSort.direction === 'asc') {
+                return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
+            } else {
+                return aVal < bVal ? 1 : aVal > bVal ? -1 : 0;
+            }
+        });
+    }
+
+    tbody.innerHTML = sortedData.map(row => {
         const bgClass = getOperationBackgroundClass(row['操作'] || row['操作']);
         
         return `
@@ -212,20 +296,21 @@ function renderDCATable(data) {
 // 渲染主动操作表格
 function renderManualTable(data) {
     const tbody = document.getElementById('manual-body');
+    const filteredData = getFilteredData(data);
 
-    if (!data || data.length === 0) {
+    if (!filteredData || filteredData.length === 0) {
         tbody.innerHTML = '<tr class="empty-state"><td colspan="5">暂无操作记录</td></tr>';
         return;
     }
 
     // 按日期倒序（最新的在前）
-    const sortedData = [...data].sort((a, b) => {
+    const sortedData = [...filteredData].sort((a, b) => {
         const dateA = (a['操作时间'] || a['操作时间'] || '').replace(/[^\d]/g, '');
         const dateB = (b['操作时间'] || b['操作时间'] || '').replace(/[^\d]/g, '');
         return dateB.localeCompare(dateA);
     });
 
-        tbody.innerHTML = sortedData.map(row => `
+    tbody.innerHTML = sortedData.map(row => `
         <tr>
             <td>${formatDate(row['操作时间'] || row['操作时间'])}</td>
             <td>${formatImageContent(row['每日定投'] || row['每日定投'])}</td>
