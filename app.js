@@ -394,8 +394,7 @@ function refreshData() {
         btn.disabled = true;
     }
 
-    // 清除缓存
-    cachedData = null;
+    // 清除缓存时间，但不清空数据
     lastFetchTime = 0;
 
     fetchData().finally(() => {
@@ -438,16 +437,16 @@ async function fetchData() {
             dailyNote = firstRow['今日留言'] || '';
         }
 
-    // 更新缓存
-    const newCacheData = { dca, manual, disclaimer, dailyNote };
+     // 更新缓存
+    const newCacheData = { dca, manual, active, disclaimer, dailyNote };
     cachedData = newCacheData;
     lastFetchTime = now;
 
-        // 渲染
-        renderDCATable(dca);
-        renderManualTable(active);  // 主动操作
-        renderDisclaimer(disclaimer);
-        updateLastUpdateTime();
+    // 渲染
+    renderDCATable(dca);
+    renderManualTable(active);  // 主动操作
+    renderDisclaimer(disclaimer);
+    updateLastUpdateTime();
 
     } catch (error) {
         console.error('获取数据失败:', error);
