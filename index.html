@@ -35,9 +35,9 @@
 
             <!-- 当前持仓表格 -->
             <div class="tab-content" id="tab-dca">
-                <div class="table-header">
-                    <h3>当前持仓基金</h3>
-                    <button class="refresh-btn" onclick="refreshData()">🔄 刷新</button>
+<div class="table-header">
+                    <h3>当前持仓</h3>
+                    <button class="chart-btn" onclick="showPieChart()">📊 持仓饼图</button>
                 </div>
                 <div class="table-container">
                     <table id="dca-table">
@@ -48,7 +48,7 @@
                                 <th>基金名称</th>
                                 <th>日限购</th>
                                 <th>操作</th>
-                                <th>金额</th>
+                                <th class="sortable" data-column="amount" onclick="sortTable('amount')">金额 <span class="sort-icon">↕</span></th>
                                 <th>备注</th>
                             </tr>
                         </thead>
@@ -63,7 +63,6 @@
             <div class="tab-content active" id="tab-manual">
                 <div class="table-header">
                     <h3>主动操作</h3>
-                    <button class="refresh-btn" onclick="refreshData()">🔄 刷新</button>
                 </div>
                 <div class="table-container">
                     <table id="manual-table">

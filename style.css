@@ -210,6 +210,297 @@ th {
     border-bottom: 2px solid #e9ecef;
 }
 
+/* 排序功能 */
+th.sortable {
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.2s ease;
+}
+
+th.sortable:hover {
+    background-color: #e9ecef;
+}
+
+.sort-icon {
+    font-size: 0.8em;
+    opacity: 0.6;
+    margin-left: 4px;
+    display: inline-block;
+    transition: opacity 0.2s ease;
+}
+
+th.sortable:hover .sort-icon {
+    opacity: 1;
+}
+
+/* 饼图按钮样式 */
+.chart-btn {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(102, 126, 234, 0.2);
+}
+
+.chart-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+}
+
+.chart-btn:active {
+    transform: translateY(0);
+}
+
+/* 饼图模态框样式 */
+.pie-chart-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.pie-chart-modal .modal-content {
+    background: white;
+    border-radius: 12px;
+    max-width: 900px;
+    max-height: 90vh;
+    overflow: auto;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+}
+
+.pie-chart-modal .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    border-bottom: 1px solid #e9ecef;
+    background: #f8f9fa;
+    border-radius: 12px 12px 0 0;
+}
+
+.pie-chart-modal .modal-header h3 {
+    margin: 0;
+    color: #2c3e50;
+    font-size: 1.25rem;
+}
+
+.pie-chart-modal .close-btn {
+    font-size: 24px;
+    cursor: pointer;
+    color: #6c757d;
+    background: none;
+    border: none;
+    padding: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+}
+
+.pie-chart-modal .close-btn:hover {
+    background: #e9ecef;
+    color: #495057;
+}
+
+.pie-chart-modal .modal-body {
+    padding: 24px;
+}
+
+.charts-container {
+    display: flex;
+    gap: 32px;
+    align-items: flex-start;
+}
+
+.chart-section {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.chart-container {
+    text-align: center;
+}
+
+.chart-container h4 {
+    margin: 0 0 16px 0;
+    color: #2c3e50;
+    font-size: 1rem;
+    text-align: center;
+}
+
+.pie-chart {
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.1));
+    width: 100%;
+    height: auto;
+    max-width: 300px;
+}
+
+.pie-slice {
+    cursor: pointer;
+    transition: opacity 0.2s ease;
+}
+
+.pie-slice:hover {
+    opacity: 0.8;
+}
+
+.pie-label {
+    pointer-events: none;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.legend {
+    flex: 1;
+    min-width: 300px;
+}
+
+.legend h4 {
+    margin: 0 0 16px 0;
+    color: #2c3e50;
+    font-size: 1.1rem;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #f1f3f4;
+    transition: background-color 0.2s ease;
+}
+
+.legend-item:hover {
+    background-color: #f8f9fa;
+    margin: 0 -8px;
+    padding: 8px;
+    border-radius: 4px;
+}
+
+.legend-color {
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    margin-right: 12px;
+    flex-shrink: 0;
+}
+
+.legend-name {
+    flex: 1;
+    font-weight: 500;
+    color: #2c3e50;
+    text-align: left;
+}
+
+.legend-code {
+    color: #6c757d;
+    font-family: monospace;
+    font-size: 0.875rem;
+    margin: 0 12px;
+    text-align: left;
+}
+
+.legend-amount {
+    font-weight: 600;
+    color: #2c3e50;
+    margin-right: 8px;
+    text-align: left;
+}
+
+.legend-percentage {
+    color: #6c757d;
+    font-size: 0.875rem;
+    text-align: left;
+}
+
+.legend-total {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 2px solid #e9ecef;
+    text-align: right;
+    font-size: 1.1rem;
+    color: #2c3e50;
+}
+
+/* 工具提示样式 */
+.tooltip {
+    position: absolute;
+    background: rgba(0, 0, 0, 0.9);
+    color: white;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    max-width: 300px;
+    z-index: 1001;
+    pointer-events: none;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .pie-chart-modal .modal-content {
+        max-width: 95vw;
+        max-height: 95vh;
+    }
+    
+    .pie-chart-modal .modal-body {
+        padding: 20px;
+    }
+    
+    .charts-container {
+        flex-direction: column;
+        gap: 24px;
+    }
+    
+    .chart-section {
+        flex-direction: row;
+        justify-content: center;
+        gap: 16px;
+    }
+    
+    .chart-container {
+        flex: 1;
+        max-width: 280px;
+    }
+    
+    .pie-chart {
+        width: 250px;
+        height: 250px;
+    }
+    
+    .legend {
+        min-width: auto;
+    }
+}
+
+@media (max-width: 480px) {
+    .chart-section {
+        flex-direction: column;
+    }
+    
+    .chart-container {
+        max-width: 220px;
+    }
+    
+    .pie-chart {
+        width: 200px;
+        height: 200px;
+    }
+}
+
 td {
     padding: 12px 16px;
     border-bottom: 1px solid #e9ecef;
