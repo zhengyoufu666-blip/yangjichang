@@ -1,5 +1,6 @@
 // 配置：Google Apps Script URL
-const GOOGLE_SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbyDmyVuRF3vUHUGsPDHjdx8fNiqv86oAXr8lyi0NcvBJylAcXwReXjn0mXjHRrVYpA5/exec';
+const GOOGLE_SHEET_API_URL = 
+'https://script.google.com/macros/s/AKfycbw7TMJDyFDBIM0JGU15YseYlZ-bggEW9oHNIMI1ZtiYlEIyjBq3DZJhI-zN9gKMdyOQ/exec';
 
 // 缓存数据（5分钟）
 let cachedData = null;
@@ -79,6 +80,42 @@ function formatCurrency(amount) {
     return '¥' + num.toLocaleString('zh-CN', {
         minimumFractionDigits: Number.isInteger(num) ? 0 : 2,
         maximumFractionDigits: 2
+    });
+}
+
+// 格式化百分比
+function formatPercentage(value, decimals = 2) {
+    if (value === null || value === undefined || value === '') return '-';
+    
+    const num = typeof value === 'number' ? value : parseFloat(value);
+    if (isNaN(num)) return '-';
+    
+    return num.toFixed(decimals) + '%';
+}
+
+// 计算持仓占比
+function calculateHoldingsPercentage(data) {
+    if (!data || data.length === 0) return data;
+    
+    // 计算总金额
+    const totalAmount = data.reduce((sum, row) => {
+        const amount = parseFloat((row['金额'] || '0').toString().replace(/[^\d.-]/g, '')) || 0;
+        return sum + amount;
+    }, 0);
+    
+    // 如果总金额为0，返回原始数据
+    if (totalAmount === 0) return data;
+    
+    // 计算每行的持仓占比
+    return data.map(row => {
+        const amount = parseFloat((row['金额'] || '0').toString().replace(/[^\d.-]/g, '')) || 0;
+        const percentage = (amount / totalAmount * 100);
+        
+        return {
+            ...row,
+            _percentage: percentage, // 存储计算出的占比
+            _originalAmount: amount  // 保留原始金额用于排序
+        };
     });
 }
 
@@ -190,12 +227,20 @@ function renderDCATable(data) {
     const tbody = document.getElementById('dca-body');
 
     if (!data || data.length === 0) {
-        tbody.innerHTML = '<tr class="empty-state"><td colspan="7">暂无定投记录</td></tr>';
+        tbody.innerHTML = '<tr class="empty-state"><td colspan="8">暂无定投记录</td></tr>';
         return;
     }
 
-        tbody.innerHTML = data.map(row => {
+    // 计算持仓占比
+    const dataWithPercentage = calculateHoldingsPercentage(data);
+
+    tbody.innerHTML = dataWithPercentage.map(row => {
         const bgClass = getOperationBackgroundClass(row['操作'] || row['操作']);
+        // 累计收益：只使用累计收益列数据，如果没有则显示"-"
+        const cumulativeAmount = row['累计收益'];
+        // 持仓占比：使用计算出的占比，如果没有则显示"-"
+        const percentage = row._percentage !== undefined ? row._percentage : 
+                          (row['持仓占比'] ? parseFloat(row['持仓占比']) : null);
         
         return `
         <tr>
@@ -208,7 +253,8 @@ function renderDCATable(data) {
                     ${row['操作'] || row['操作'] || '-'}
                 </span>
             </td>
-            <td>${formatCurrency(row['金额'] || row['金额'])}</td>
+            <td><strong>${formatPercentage(percentage)}</strong></td>
+            <td>${cumulativeAmount ? formatCurrency(cumulativeAmount) : '-'}</td>
             <td>${row['备注'] || row['备注'] || '-'}</td>
         </tr>
     `;
@@ -274,17 +320,7 @@ function renderDailyTable(data) {
     `).join('');
 }
 
-// 切换标签
-function updateLastUpdateTime() {
-    const now = new Date();
-    document.getElementById('last-update').textContent = now.toLocaleString('zh-CN', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit'
-    });
-}
+
 
 // 切换标签
 function switchTab(tabName) {
@@ -359,23 +395,40 @@ function renderDCATableWithSort(data) {
     const tbody = document.getElementById('dca-body');
 
     if (!data || data.length === 0) {
-        tbody.innerHTML = '<tr class="empty-state"><td colspan="7">暂无定投记录</td></tr>';
+        tbody.innerHTML = '<tr class="empty-state"><td colspan="8">暂无定投记录</td></tr>';
         return;
     }
 
+    // 计算持仓占比
+    const dataWithPercentage = calculateHoldingsPercentage(data);
+
     // 根据当前排序状态排序数据
-    let sortedData = [...data];
-    if (sortState.column === 'amount' && sortState.direction) {
+    let sortedData = [...dataWithPercentage];
+    if (sortState.column && sortState.direction) {
         sortedData.sort((a, b) => {
-            const amountA = parseFloat((a['金额'] || '0').toString().replace(/[^\d.-]/g, '')) || 0;
-            const amountB = parseFloat((b['金额'] || '0').toString().replace(/[^\d.-]/g, '')) || 0;
+            let valueA, valueB;
             
-            return sortState.direction === 'asc' ? amountA - amountB : amountB - amountA;
+            if (sortState.column === 'percentage') {
+                // 持仓占比排序：使用计算出的占比
+                valueA = a._percentage || 0;
+                valueB = b._percentage || 0;
+            } else if (sortState.column === 'cumulative') {
+                // 累计收益排序：只使用累计收益列，如果没有则视为0
+                valueA = parseFloat((a['累计收益'] || '0').toString().replace(/[^\d.-]/g, '')) || 0;
+                valueB = parseFloat((b['累计收益'] || '0').toString().replace(/[^\d.-]/g, '')) || 0;
+            }
+            
+            return sortState.direction === 'asc' ? valueA - valueB : valueB - valueA;
         });
     }
 
     tbody.innerHTML = sortedData.map(row => {
         const bgClass = getOperationBackgroundClass(row['操作'] || row['操作']);
+        // 累计收益：只使用累计收益列数据，如果没有则显示"-"
+        const cumulativeAmount = row['累计收益'];
+        // 持仓占比：使用计算出的占比，如果没有则显示"-"
+        const percentage = row._percentage !== undefined ? row._percentage : 
+                          (row['持仓占比'] ? parseFloat(row['持仓占比']) : null);
         
         return `
         <tr>
@@ -388,7 +441,8 @@ function renderDCATableWithSort(data) {
                     ${row['操作'] || row['操作'] || '-'}
                 </span>
             </td>
-            <td>${formatCurrency(row['金额'] || row['金额'])}</td>
+            <td><strong>${formatPercentage(percentage)}</strong></td>
+            <td>${cumulativeAmount ? formatCurrency(cumulativeAmount) : '-'}</td>
             <td>${row['备注'] || row['备注'] || '-'}</td>
         </tr>
     `;
@@ -397,54 +451,116 @@ function renderDCATableWithSort(data) {
 
 // 显示持仓饼图
 function showPieChart() {
-    if (!cachedData || !cachedData.dca) {
-        alert('暂无持仓数据');
-        return;
+    try {
+        if (!cachedData || !cachedData.dca) {
+            showPieChartError('暂无持仓数据，请先加载数据');
+            return;
+        }
+        
+        // 计算各基金的持仓金额
+        const fundData = calculateFundAllocation(cachedData.dca);
+        
+        if (!fundData || fundData.length === 0) {
+            showPieChartError('暂无有效持仓数据，请检查数据格式');
+            return;
+        }
+        
+        // 检查数据有效性
+        const validFunds = fundData.filter(fund => fund.percentage > 0);
+        if (validFunds.length === 0) {
+            showPieChartError('所有基金的持仓占比都为0，无法生成饼图');
+            return;
+        }
+        
+        // 创建饼图弹窗
+        createPieChartModal(validFunds);
+        
+    } catch (error) {
+        console.error('显示饼图失败:', error);
+        showPieChartError(`生成饼图时出错: ${error.message}`);
     }
-    
-    // 计算各基金的持仓金额
-    const fundData = calculateFundAllocation(cachedData.dca);
-    
-    if (fundData.length === 0) {
-        alert('暂无有效持仓数据');
-        return;
-    }
-    
-    // 创建饼图弹窗
-    createPieChartModal(fundData);
 }
 
-// 计算操作分类分布
+// 显示饼图错误提示
+function showPieChartError(message) {
+    // 创建错误提示模态框
+    const errorModal = document.createElement('div');
+    errorModal.className = 'pie-chart-modal';
+    errorModal.innerHTML = `
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <h3>⚠️ 无法显示饼图</h3>
+                <span class="close-btn" onclick="this.parentElement.parentElement.remove()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div style="text-align: center; padding: 20px;">
+                    <div style="font-size: 3rem; margin-bottom: 16px;">📊</div>
+                    <p style="color: #2c3e50; margin-bottom: 16px;">${message}</p>
+                    <div style="display: flex; gap: 12px; justify-content: center; margin-top: 24px;">
+                        <button class="refresh-btn" onclick="fetchData(); this.parentElement.parentElement.parentElement.parentElement.remove()">
+                            🔄 刷新数据
+                        </button>
+                        <button class="chart-btn" onclick="this.parentElement.parentElement.parentElement.parentElement.remove()">
+                            关闭
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // 添加到页面
+    document.body.appendChild(errorModal);
+    
+    // 点击背景关闭
+    errorModal.addEventListener('click', function(e) {
+        if (e.target === errorModal) {
+            errorModal.remove();
+        }
+    });
+}
+
+// 计算操作分类分布（使用持仓占比）
 function calculateOperationDistribution(data) {
     const operationMap = new Map();
     
     data.forEach(row => {
-        const operation = row['操作'] || row['操作'] || '';
-        const amountStr = row['金额'] || row['金额'] || '0';
-        const amount = parseFloat(amountStr.toString().replace(/[^\d.-]/g, '')) || 0;
+        const operation = row['操作'] || '';
         
-        if (operation && amount > 0) {
+        // 获取持仓占比
+        let percentage = 0;
+        
+        // 先尝试使用计算出的占比
+        if (row._percentage !== undefined) {
+            percentage = row._percentage;
+        } 
+        // 如果没有计算出的占比，尝试使用表格中的持仓占比列
+        else if (row['持仓占比']) {
+            percentage = parseFloat(row['持仓占比']) || 0;
+        }
+        
+        if (operation && percentage > 0) {
             if (operationMap.has(operation)) {
                 const existing = operationMap.get(operation);
-                existing.amount += amount;
+                existing.percentage += percentage;
             } else {
                 operationMap.set(operation, {
                     operation: operation,
-                    amount: amount
+                    percentage: percentage
                 });
             }
         }
     });
     
-    // 计算总额和百分比
-    const totalAmount = Array.from(operationMap.values()).reduce((sum, op) => sum + op.amount, 0);
+    // 计算总占比并归一化
+    const totalPercentage = Array.from(operationMap.values()).reduce((sum, op) => sum + op.percentage, 0);
     const result = Array.from(operationMap.values()).map(op => ({
         ...op,
-        percentage: totalAmount > 0 ? (op.amount / totalAmount * 100) : 0
+        percentage: totalPercentage > 0 ? (op.percentage / totalPercentage * 100) : 0
     }));
     
-    // 按金额降序排序
-    return result.sort((a, b) => b.amount - a.amount);
+    // 按占比降序排序
+    return result.sort((a, b) => b.percentage - a.percentage);
 }
 
 // 生成操作分类颜色
@@ -472,42 +588,74 @@ function generateOperationColors(count) {
     return colors;
 }
 
-// 计算基金持仓分配
+// 计算基金持仓分配（使用持仓占比）
 function calculateFundAllocation(data) {
     const fundMap = new Map();
     
-    data.forEach(row => {
-        const fundName = row['基金名称'] || row['基金名称'] || '';
-        const fundCode = row['基金代码'] || row['基金代码'] || '';
-        const amountStr = row['金额'] || row['金额'] || '0';
+    // 先计算总金额，用于计算占比
+    const totalAmount = data.reduce((sum, row) => {
+        const amountStr = row['金额'] || '0';
         const amount = parseFloat(amountStr.toString().replace(/[^\d.-]/g, '')) || 0;
+        return sum + amount;
+    }, 0);
+    
+    data.forEach(row => {
+        const fundName = row['基金名称'] || '';
+        const fundCode = row['基金代码'] || '';
         
-        if (fundName && amount > 0) {
+        if (!fundName) return; // 跳过没有基金名称的行
+        
+        // 计算该基金的占比
+        let percentage = 0;
+        
+        // 优先使用表格中的持仓占比列
+        if (row['持仓占比']) {
+            percentage = parseFloat(row['持仓占比']) || 0;
+        }
+        // 如果没有持仓占比列，使用金额计算占比
+        else {
+            const amountStr = row['金额'] || '0';
+            const amount = parseFloat(amountStr.toString().replace(/[^\d.-]/g, '')) || 0;
+            percentage = totalAmount > 0 ? (amount / totalAmount * 100) : 0;
+        }
+        
+        if (percentage > 0) {
             if (fundMap.has(fundName)) {
                 const existing = fundMap.get(fundName);
-                existing.amount += amount;
+                existing.percentage += percentage;
+                existing.count += 1;
             } else {
                 fundMap.set(fundName, {
                     name: fundName,
                     code: fundCode,
-                    amount: amount
+                    percentage: percentage,
+                    count: 1
                 });
             }
         }
     });
     
-    // 计算总额和百分比
-    const totalAmount = Array.from(fundMap.values()).reduce((sum, fund) => sum + fund.amount, 0);
-    const result = Array.from(fundMap.values()).map(fund => ({
-        ...fund,
-        percentage: totalAmount > 0 ? (fund.amount / totalAmount * 100) : 0
+    // 过滤掉占比为0的基金
+    const filteredFunds = Array.from(fundMap.values()).filter(fund => fund.percentage > 0);
+    
+    if (filteredFunds.length === 0) {
+        return [];
+    }
+    
+    // 计算总占比并归一化（确保总和为100%）
+    const totalPercentage = filteredFunds.reduce((sum, fund) => sum + fund.percentage, 0);
+    const result = filteredFunds.map(fund => ({
+        name: fund.name,
+        code: fund.code,
+        percentage: totalPercentage > 0 ? (fund.percentage / totalPercentage * 100) : 0,
+        count: fund.count
     }));
     
-    // 按金额降序排序
-    return result.sort((a, b) => b.amount - a.amount);
+    // 按占比降序排序
+    return result.sort((a, b) => b.percentage - a.percentage);
 }
 
-// 创建饼图弹窗
+// 创建饼图弹窗 - 新版友好界面
 function createPieChartModal(fundData) {
     // 创建模态框
     const modal = document.createElement('div');
@@ -521,99 +669,146 @@ function createPieChartModal(fundData) {
     
     // 计算操作分类数据
     const operationData = calculateOperationDistribution(cachedData.dca);
-    const operationColors = generateOperationColors(operationData.length);
-    const operationPieSlices = calculatePieSlices(operationData);
     
     modal.innerHTML = `
         <div class="modal-content">
             <div class="modal-header">
-                <h3>📊 持仓分布图</h3>
+                <h3>📊 资产分布可视化</h3>
                 <span class="close-btn" onclick="closePieChartModal()">&times;</span>
             </div>
-                <div class="modal-body">
-                    <div class="charts-container">
-                        <div class="chart-section">
-                            <div class="chart-container">
-                                <h4>操作分类</h4>
-                                <svg width="300" height="300" viewBox="0 0 300 300" class="pie-chart">
-                                    ${operationPieSlices.map((slice, index) => `
-                                        <g class="pie-slice operation-slice" data-operation-index="${index}">
-                                            <path d="${slice.path}" 
-                                                  fill="${operationColors[index]}" stroke="white" stroke-width="2"
-                                                  onmouseover="showOperationTooltip(${index}, event)"
-                                                  onmouseout="hideOperationTooltip()">
-                                            </path>
-                                        </g>
-                                    `).join('')}
-                                    ${operationData.map((op, index) => {
-                                        const labelAngle = operationPieSlices[index].middleAngle;
-                                        const labelX = 150 + Math.cos(labelAngle) * 80;
-                                        const labelY = 150 + Math.sin(labelAngle) * 80;
-                                        return `
-                                            <text x="${labelX}" y="${labelY}" text-anchor="middle" 
-                                                  class="pie-label" fill="white" font-weight="bold" font-size="10">
-                                                ${op.percentage.toFixed(1)}%
-                                            </text>
-                                        `;
-                                    }).join('')}
-                                </svg>
-                            </div>
-                            <div class="chart-container">
-                                <h4>基金分布</h4>
-                                <svg width="300" height="300" viewBox="0 0 300 300" class="pie-chart">
-                                    ${fundPieSlices.map((slice, index) => `
-                                        <g class="pie-slice fund-slice" data-index="${index}">
-                                            <path d="${slice.path}" 
-                                                  fill="${fundColors[index]}" stroke="white" stroke-width="2"
-                                                  onmouseover="showFundTooltip(${index}, event)"
-                                                  onmouseout="hideFundTooltip()">
-                                            </path>
-                                        </g>
-                                    `).join('')}
-                                    ${fundData.map((fund, index) => {
-                                        const labelAngle = fundPieSlices[index].middleAngle;
-                                        const labelX = 150 + Math.cos(labelAngle) * 80;
-                                        const labelY = 150 + Math.sin(labelAngle) * 80;
-                                        return `
-                                            <text x="${labelX}" y="${labelY}" text-anchor="middle" 
-                                                  class="pie-label" fill="white" font-weight="bold" font-size="10">
-                                                ${fund.percentage.toFixed(1)}%
-                                            </text>
-                                        `;
-                                    }).join('')}
-                                </svg>
+            <div class="modal-body">
+                <div class="dashboard-container">
+                    <!-- 顶部概览卡片 -->
+                    <div class="overview-cards">
+                        <div class="overview-card">
+                            <div class="card-icon">📈</div>
+                            <div class="card-content">
+                                <div class="card-title">基金数量</div>
+                                <div class="card-value">${fundData.length}</div>
                             </div>
                         </div>
-                    <div class="legend">
-                        <h4>基金明细</h4>
-                        ${fundData.map((fund, index) => `
-                            <div class="legend-item">
-                                <span class="legend-color" style="background-color: ${fundColors[index]}"></span>
-                                <span class="legend-name">${fund.name}</span>
-                                <span class="legend-code">${fund.code}</span>
-                                <span class="legend-amount">${formatCurrency(fund.amount)}</span>
-                                <span class="legend-percentage">(${fund.percentage.toFixed(2)}%)</span>
+                        <div class="overview-card">
+                            <div class="card-icon">🎯</div>
+                            <div class="card-content">
+                                <div class="card-title">最大持仓</div>
+                                <div class="card-value">${fundData.length > 0 ? fundData[0].percentage.toFixed(1) + '%' : '0%'}</div>
+                                <div class="card-subtitle">${fundData.length > 0 ? fundData[0].name : ''}</div>
                             </div>
-                        `).join('')}
-                        <div class="legend-total">
-                            <strong>总计: ${formatCurrency(fundData.reduce((sum, fund) => sum + fund.amount, 0))}</strong>
+                        </div>
+                        <div class="overview-card">
+                            <div class="card-icon">⚖️</div>
+                            <div class="card-content">
+                                <div class="card-title">持仓均衡度</div>
+                                <div class="card-value">${calculateDiversificationScore(fundData)}</div>
+                                <div class="card-subtitle">分数越高越均衡</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 主图表区域 -->
+                    <div class="main-chart-area">
+                        <div class="chart-with-legend">
+                            <div class="chart-container">
+                                <h4>基金持仓分布</h4>
+                                <div class="chart-wrapper">
+                                    <svg width="350" height="350" viewBox="0 0 350 350" class="pie-chart">
+                                        ${fundPieSlices.map((slice, index) => `
+                                            <g class="pie-slice fund-slice" data-index="${index}">
+                                                <path d="${slice.path}" 
+                                                      fill="${fundColors[index]}" stroke="white" stroke-width="2"
+                                                      onmouseover="showFundTooltip(${index}, event)"
+                                                      onmouseout="hideFundTooltip()">
+                                                </path>
+                                            </g>
+                                        `).join('')}
+                                        ${fundData.map((fund, index) => {
+                                            const labelAngle = fundPieSlices[index].middleAngle;
+                                            const labelX = 175 + Math.cos(labelAngle) * 110;
+                                            const labelY = 175 + Math.sin(labelAngle) * 110;
+                                            return `
+                                                <text x="${labelX}" y="${labelY}" text-anchor="middle" 
+                                                      class="pie-label" fill="white" font-weight="bold" font-size="11">
+                                                    ${fund.percentage.toFixed(1)}%
+                                                </text>
+                                            `;
+                                        }).join('')}
+                                        <!-- 中心文字 -->
+                                        <text x="175" y="175" text-anchor="middle" class="center-text" fill="#2c3e50" font-weight="bold" font-size="16">
+                                            持仓分布
+                                        </text>
+                                        <text x="175" y="195" text-anchor="middle" class="center-subtext" fill="#6c757d" font-size="12">
+                                            ${fundData.length} 只基金
+                                        </text>
+                                    </svg>
+                                </div>
+                            </div>
+                            
+                            <div class="legend-container">
+                                <h4>基金明细 <span class="legend-count">(${fundData.length})</span></h4>
+                                <div class="legend-scroll">
+                                    ${fundData.map((fund, index) => `
+                                        <div class="legend-item" onmouseover="highlightPieSlice(${index})" onmouseout="unhighlightPieSlice()">
+                                            <span class="legend-rank">${index + 1}</span>
+                                            <span class="legend-color" style="background-color: ${fundColors[index]}"></span>
+                                            <div class="legend-info">
+                                                <div class="legend-name">${fund.name}</div>
+                                                <div class="legend-code">${fund.code}</div>
+                                            </div>
+                                            <div class="legend-percentage">
+                                                <div class="percentage-bar">
+                                                    <div class="percentage-fill" style="width: ${fund.percentage}%"></div>
+                                                </div>
+                                                <span class="percentage-value">${fund.percentage.toFixed(1)}%</span>
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                                <div class="legend-summary">
+                                    <div class="summary-item">
+                                        <span class="summary-label">前3大持仓:</span>
+                                        <span class="summary-value">${fundData.slice(0, 3).reduce((sum, fund) => sum + fund.percentage, 0).toFixed(1)}%</span>
+                                    </div>
+                                    <div class="summary-item">
+                                        <span class="summary-label">持仓集中度:</span>
+                                        <span class="summary-value">${calculateConcentration(fundData)}</span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                         
-                        <h4 style="margin-top: 24px;">操作分类</h4>
-                        ${operationData.map((op, index) => `
-                            <div class="legend-item">
-                                <span class="legend-color" style="background-color: ${operationColors[index]}"></span>
-                                <span class="legend-name">${op.operation}</span>
-                                <span class="legend-amount">${formatCurrency(op.amount)}</span>
-                                <span class="legend-percentage">(${op.percentage.toFixed(2)}%)</span>
+                        <!-- 操作分类区域 -->
+                        ${operationData.length > 0 ? `
+                        <div class="operation-section">
+                            <h4>操作类型分布</h4>
+                            <div class="operation-grid">
+                                ${operationData.map((op, index) => `
+                                    <div class="operation-card">
+                                        <div class="operation-icon">${getOperationIcon(op.operation)}</div>
+                                        <div class="operation-info">
+                                            <div class="operation-name">${op.operation}</div>
+                                            <div class="operation-percentage">${op.percentage.toFixed(1)}%</div>
+                                        </div>
+                                        <div class="operation-bar">
+                                            <div class="operation-bar-fill" style="width: ${op.percentage}%"></div>
+                                        </div>
+                                    </div>
+                                `).join('')}
                             </div>
-                        `).join('')}
+                        </div>
+                        ` : ''}
+                    </div>
+                    
+                    <!-- 分析建议 -->
+                    <div class="analysis-section">
+                        <h4>📋 持仓分析</h4>
+                        <div class="analysis-content">
+                            ${generateAnalysis(fundData)}
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
         <div class="tooltip" id="fund-tooltip" style="display: none;"></div>
-        <div class="tooltip" id="operation-tooltip" style="display: none;"></div>
     `;
     
     // 添加到页面
@@ -624,6 +819,103 @@ function createPieChartModal(fundData) {
         if (e.target === modal) {
             closePieChartModal();
         }
+    });
+}
+
+// 计算持仓均衡度分数
+function calculateDiversificationScore(fundData) {
+    if (fundData.length <= 1) return '10.0';
+    
+    // 计算赫芬达尔指数（HHI）
+    let hhi = 0;
+    fundData.forEach(fund => {
+        const share = fund.percentage / 100;
+        hhi += share * share;
+    });
+    
+    // 转换为0-10分制（分数越高越均衡）
+    const score = 10 * (1 - hhi);
+    return score.toFixed(1);
+}
+
+// 计算持仓集中度
+function calculateConcentration(fundData) {
+    if (fundData.length === 0) return '无数据';
+    
+    const top3Percentage = fundData.slice(0, 3).reduce((sum, fund) => sum + fund.percentage, 0);
+    
+    if (top3Percentage > 70) return '高度集中';
+    if (top3Percentage > 50) return '比较集中';
+    if (top3Percentage > 30) return '相对均衡';
+    return '非常均衡';
+}
+
+// 获取操作类型图标
+function getOperationIcon(operation) {
+    const op = (operation || '').toLowerCase();
+    if (op.includes('买入') || op.includes('加仓')) return '📈';
+    if (op.includes('卖出') || op.includes('减仓')) return '📉';
+    if (op.includes('定投')) return '💰';
+    if (op.includes('推荐')) return '⭐';
+    return '📊';
+}
+
+// 生成分析建议
+function generateAnalysis(fundData) {
+    if (fundData.length === 0) {
+        return '<p class="analysis-text">暂无持仓数据，请先添加基金记录。</p>';
+    }
+    
+    const topFund = fundData[0];
+    const top3Percentage = fundData.slice(0, 3).reduce((sum, fund) => sum + fund.percentage, 0);
+    
+    let analysis = '';
+    
+    // 持仓集中度分析
+    if (topFund.percentage > 50) {
+        analysis += `<p class="analysis-text warning">⚠️ <strong>持仓高度集中</strong>：${topFund.name}占比${topFund.percentage.toFixed(1)}%，建议适当分散风险。</p>`;
+    } else if (topFund.percentage > 30) {
+        analysis += `<p class="analysis-text info">📊 <strong>持仓相对集中</strong>：前3大基金占比${top3Percentage.toFixed(1)}%，配置较为合理。</p>`;
+    } else {
+        analysis += `<p class="analysis-text success">✅ <strong>持仓分散良好</strong>：前3大基金占比${top3Percentage.toFixed(1)}%，风险分散较好。</p>`;
+    }
+    
+    // 基金数量分析
+    if (fundData.length < 3) {
+        analysis += `<p class="analysis-text warning">📈 <strong>基金数量较少</strong>：当前仅持有${fundData.length}只基金，建议增加至3-5只以分散风险。</p>`;
+    } else if (fundData.length > 8) {
+        analysis += `<p class="analysis-text info">📋 <strong>基金数量较多</strong>：持有${fundData.length}只基金，管理较为复杂，可考虑精简。</p>`;
+    } else {
+        analysis += `<p class="analysis-text success">🎯 <strong>基金数量适中</strong>：持有${fundData.length}只基金，便于管理和跟踪。</p>`;
+    }
+    
+    // 持仓均衡建议
+    const avgPercentage = 100 / fundData.length;
+    const unbalancedFunds = fundData.filter(fund => fund.percentage > avgPercentage * 2);
+    
+    if (unbalancedFunds.length > 0) {
+        analysis += `<p class="analysis-text tip">💡 <strong>均衡建议</strong>：${unbalancedFunds.map(f => f.name).join('、')}占比偏高，可考虑调整。</p>`;
+    }
+    
+    return analysis;
+}
+
+// 高亮饼图切片
+function highlightPieSlice(index) {
+    const slices = document.querySelectorAll('.pie-slice');
+    if (slices[index]) {
+        slices[index].style.opacity = '0.8';
+        slices[index].style.transform = 'scale(1.05)';
+        slices[index].style.transition = 'all 0.2s ease';
+    }
+}
+
+// 取消高亮
+function unhighlightPieSlice() {
+    const slices = document.querySelectorAll('.pie-slice');
+    slices.forEach(slice => {
+        slice.style.opacity = '1';
+        slice.style.transform = 'scale(1)';
     });
 }
 
@@ -644,12 +936,13 @@ function generateColors(count) {
 
 // 计算饼图切片路径
 function calculatePieSlices(fundData) {
-    const totalAmount = fundData.reduce((sum, fund) => sum + fund.amount, 0);
+    // 使用百分比计算饼图切片，而不是金额
+    const totalPercentage = fundData.reduce((sum, fund) => sum + fund.percentage, 0);
     const slices = [];
     let currentAngle = -Math.PI / 2; // 从顶部开始
     
     fundData.forEach((fund) => {
-        const percentage = fund.amount / totalAmount;
+        const percentage = fund.percentage / totalPercentage;
         const angle = percentage * 2 * Math.PI;
         const endAngle = currentAngle + angle;
         
@@ -707,8 +1000,7 @@ function showOperationTooltip(index, event) {
     tooltip.innerHTML = `
         <div style="padding: 8px;">
             <div style="font-weight: bold; margin-bottom: 4px;">${operation.operation}</div>
-            <div>总金额: <strong>${formatCurrency(operation.amount)}</strong></div>
-            <div>占比: <strong>${operation.percentage.toFixed(2)}%</strong></div>
+            <div>总占比: <strong>${operation.percentage.toFixed(2)}%</strong></div>
             <div style="margin-top: 4px; padding-top: 4px; border-top: 1px solid #eee;">
                 <div style="font-size: 11px; color: #666;">操作记录:</div>
                 ${recordsHtml}
@@ -756,8 +1048,7 @@ function showFundTooltip(index, event) {
     tooltip.innerHTML = `
         <div style="padding: 8px;">
             <div style="font-weight: bold; margin-bottom: 4px;">${fund.name} (${fund.code})</div>
-            <div>持仓金额: <strong>${formatCurrency(fund.amount)}</strong></div>
-            <div>占比: <strong>${fund.percentage.toFixed(2)}%</strong></div>
+            <div>持仓占比: <strong>${fund.percentage.toFixed(2)}%</strong></div>
             <div style="margin-top: 4px; padding-top: 4px; border-top: 1px solid #eee;">
                 <div style="font-size: 11px; color: #666;">操作记录:</div>
                 ${recordsHtml}
@@ -798,21 +1089,34 @@ function closePieChartModal() {
 
 
 // 获取数据
-async function fetchData() {
+async function fetchData(retryCount = 0) {
+    const maxRetries = 3;
     const now = Date.now();
+    
+    // 显示加载状态
+    showLoadingState();
+    
     if (cachedData && (now - lastFetchTime) < CACHE_DURATION) {
         console.log('使用缓存数据');
         renderDCATable(cachedData.dca);
         renderManualTable(cachedData.active);
         renderDisclaimer(cachedData.disclaimer);
-        updateLastUpdateTime();
+        hideLoadingState();
         return;
     }
 
     try {
         const response = await fetch(GOOGLE_SHEET_API_URL);
 
-        if (!response.ok) throw new Error('网络请求失败');
+        if (!response.ok) {
+            if (response.status === 404) {
+                throw new Error('数据源不存在 (404)');
+            } else if (response.status === 403) {
+                throw new Error('访问被拒绝 (403)');
+            } else {
+                throw new Error(`网络请求失败 (${response.status})`);
+            }
+        }
 
         const jsonData = await response.json();
 
@@ -834,24 +1138,91 @@ async function fetchData() {
         lastFetchTime = now;
 
         // 渲染
-        if (sortState.direction && sortState.column === 'amount') {
+        if (sortState.direction && (sortState.column === 'percentage' || sortState.column === 'cumulative')) {
             renderDCATableWithSort(dca);
         } else {
             renderDCATable(dca);
         }
         renderManualTable(active);  // 主动操作
         renderDisclaimer(disclaimer);
-        updateLastUpdateTime();
+        
+        hideLoadingState();
 
     } catch (error) {
         console.error('获取数据失败:', error);
-        document.getElementById('dca-body').innerHTML = `
-            <tr class="empty-state"><td colspan="7">加载失败: ${error.message}</td></tr>
-        `;
-        document.getElementById('manual-body').innerHTML = `
-            <tr class="empty-state"><td colspan="6">加载失败: ${error.message}</td></tr>
+        
+        // 重试逻辑
+        if (retryCount < maxRetries) {
+            console.log(`重试中... (${retryCount + 1}/${maxRetries})`);
+            setTimeout(() => fetchData(retryCount + 1), 2000 * (retryCount + 1));
+            showErrorState(`加载失败，正在重试... (${retryCount + 1}/${maxRetries})`);
+        } else {
+            showErrorState(`加载失败: ${error.message}<br><small>请检查网络连接或稍后重试</small>`);
+        }
+    }
+}
+
+// 显示加载状态
+function showLoadingState() {
+    const dcaBody = document.getElementById('dca-body');
+    const manualBody = document.getElementById('manual-body');
+    
+    if (dcaBody) {
+        dcaBody.innerHTML = `
+            <tr class="loading-row"><td colspan="8">
+                <div class="loading-content">
+                    <div class="loading-spinner"></div>
+                    <span>正在加载数据...</span>
+                </div>
+            </td></tr>
         `;
     }
+    
+    if (manualBody) {
+        manualBody.innerHTML = `
+            <tr class="loading-row"><td colspan="5">
+                <div class="loading-content">
+                    <div class="loading-spinner"></div>
+                    <span>正在加载数据...</span>
+                </div>
+            </td></tr>
+        `;
+    }
+}
+
+// 显示错误状态
+function showErrorState(message) {
+    const dcaBody = document.getElementById('dca-body');
+    const manualBody = document.getElementById('manual-body');
+    
+    if (dcaBody) {
+        dcaBody.innerHTML = `
+            <tr class="error-state"><td colspan="8">
+                <div class="error-content">
+                    <div class="error-icon">⚠️</div>
+                    <div class="error-message">${message}</div>
+                    <button class="retry-btn" onclick="fetchData()">重试</button>
+                </div>
+            </td></tr>
+        `;
+    }
+    
+    if (manualBody) {
+        manualBody.innerHTML = `
+            <tr class="error-state"><td colspan="5">
+                <div class="error-content">
+                    <div class="error-icon">⚠️</div>
+                    <div class="error-message">${message}</div>
+                    <button class="retry-btn" onclick="fetchData()">重试</button>
+                </div>
+            </td></tr>
+        `;
+    }
+}
+
+// 隐藏加载状态
+function hideLoadingState() {
+    // 加载状态会在数据渲染时自动替换，所以这里不需要额外操作
 }
 
 // 页面加载完成后执行

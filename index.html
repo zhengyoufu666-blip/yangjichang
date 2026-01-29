@@ -35,9 +35,12 @@
 
             <!-- 当前持仓表格 -->
             <div class="tab-content" id="tab-dca">
-<div class="table-header">
+                <div class="table-header">
                     <h3>当前持仓</h3>
-                    <button class="chart-btn" onclick="showPieChart()">📊 持仓饼图</button>
+                    <div class="table-actions">
+                        <button class="refresh-btn" onclick="fetchData()" title="刷新数据">🔄 刷新</button>
+                        <button class="chart-btn" onclick="showPieChart()">📊 持仓饼图</button>
+                    </div>
                 </div>
                 <div class="table-container">
                     <table id="dca-table">
@@ -48,12 +51,18 @@
                                 <th>基金名称</th>
                                 <th>日限购</th>
                                 <th>操作</th>
-                                <th class="sortable" data-column="amount" onclick="sortTable('amount')">金额 <span class="sort-icon">↕</span></th>
+                                <th class="sortable" data-column="percentage" onclick="sortTable('percentage')">持仓占比 <span class="sort-icon">↕</span></th>
+                                <th class="sortable" data-column="cumulative" onclick="sortTable('cumulative')">累计收益 <span class="sort-icon">↕</span></th>
                                 <th>备注</th>
                             </tr>
                         </thead>
                         <tbody id="dca-body">
-                            <tr class="loading-row"><td colspan="7">加载中...</td></tr>
+                            <tr class="loading-row"><td colspan="8">
+                                <div class="loading-content">
+                                    <div class="loading-spinner"></div>
+                                    <span>正在加载数据...</span>
+                                </div>
+                            </td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -76,7 +85,12 @@
                             </tr>
                         </thead>
                         <tbody id="manual-body">
-                            <tr class="loading-row"><td colspan="5">加载中...</td></tr>
+                            <tr class="loading-row"><td colspan="5">
+                                <div class="loading-content">
+                                    <div class="loading-spinner"></div>
+                                    <span>正在加载数据...</span>
+                                </div>
+                            </td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -84,7 +98,7 @@
         </main>
 
         <footer>
-            <p>数据来源：Google Sheets · 最后更新：<span id="last-update">-</span></p>
+            <p>© 2026 养鸡场基金记录系统</p>
         </footer>
     </div>
 
