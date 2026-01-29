@@ -255,30 +255,7 @@ header .subtitle {
     align-items: center;
 }
 
-/* 刷新按钮 */
-.refresh-btn {
-    background: #f8f9fa;
-    color: #495057;
-    border: 1px solid #dee2e6;
-    padding: 6px 12px;
-    border-radius: 6px;
-    font-size: 0.8125rem;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-}
 
-.refresh-btn:hover {
-    background: #e9ecef;
-    border-color: #adb5bd;
-}
-
-.refresh-btn:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-}
 
 /* 饼图按钮 */
 .chart-btn {
