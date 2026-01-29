@@ -763,16 +763,6 @@ function createPieChartModal(fundData) {
                                         </div>
                                     `).join('')}
                                 </div>
-                                <div class="legend-summary">
-                                    <div class="summary-item">
-                                        <span class="summary-label">前3大持仓:</span>
-                                        <span class="summary-value">${fundData.slice(0, 3).reduce((sum, fund) => sum + fund.percentage, 0).toFixed(1)}%</span>
-                                    </div>
-                                    <div class="summary-item">
-                                        <span class="summary-label">持仓集中度:</span>
-                                        <span class="summary-value">${calculateConcentration(fundData)}</span>
-                                    </div>
-                                </div>
                             </div>
                         </div>
                         
