@@ -186,18 +186,39 @@ function formatImageContent(content) {
 
 // 打开图片模态框
 function openImageModal(imageUrl) {
+    // 如果已有模态框，先关闭
+    closeImageModal();
+    
     // 创建模态框
     const modal = document.createElement('div');
     modal.className = 'image-modal';
     modal.innerHTML = `
         <div class="modal-content">
             <span class="close-btn" onclick="closeImageModal()">&times;</span>
-            <img src="${imageUrl}" alt="放大图片">
+            <div class="image-container">
+                <img src="${imageUrl}" alt="放大图片" id="modal-image">
+            </div>
+            <div class="image-controls">
+                <button class="control-btn" onclick="zoomImage(1.2)" title="放大">🔍+</button>
+                <button class="control-btn" onclick="zoomImage(0.8)" title="缩小">🔍-</button>
+                <button class="control-btn" onclick="resetImage()" title="重置">↺</button>
+                <button class="control-btn" onclick="downloadImage('${imageUrl}')" title="下载">⬇️</button>
+            </div>
         </div>
     `;
     
     // 添加到页面
     document.body.appendChild(modal);
+    
+    // 初始化图片状态
+    window.currentImageScale = 1;
+    window.isDragging = false;
+    window.startX = 0;
+    window.startY = 0;
+    window.translateX = 0;
+    window.translateY = 0;
+    
+    const image = document.getElementById('modal-image');
     
     // 点击背景关闭
     modal.addEventListener('click', function(e) {
@@ -205,6 +226,21 @@ function openImageModal(imageUrl) {
             closeImageModal();
         }
     });
+    
+    // 添加图片拖拽功能
+    image.addEventListener('mousedown', startDrag);
+    image.addEventListener('touchstart', startDragTouch);
+    
+    // 添加鼠标滚轮缩放
+    image.addEventListener('wheel', handleWheel);
+    
+    // 阻止模态框内容点击关闭
+    modal.querySelector('.modal-content').addEventListener('click', function(e) {
+        e.stopPropagation();
+    });
+    
+    // 设置双击重置功能
+    image.addEventListener('dblclick', resetImage);
 }
 
 // 关闭图片模态框
@@ -213,7 +249,124 @@ function closeImageModal() {
     if (modal) {
         modal.remove();
     }
+    // 重置状态
+    window.currentImageScale = 1;
+    window.isDragging = false;
+    window.translateX = 0;
+    window.translateY = 0;
 }
+
+// 图片缩放
+function zoomImage(factor) {
+    const image = document.getElementById('modal-image');
+    if (!image) return;
+    
+    window.currentImageScale *= factor;
+    // 限制缩放范围
+    window.currentImageScale = Math.max(0.2, Math.min(5, window.currentImageScale));
+    
+    image.style.transform = `scale(${window.currentImageScale}) translate(${window.translateX}px, ${window.translateY}px)`;
+    image.style.transformOrigin = 'center center';
+}
+
+// 重置图片
+function resetImage() {
+    const image = document.getElementById('modal-image');
+    if (!image) return;
+    
+    window.currentImageScale = 1;
+    window.translateX = 0;
+    window.translateY = 0;
+    
+    image.style.transform = 'scale(1) translate(0px, 0px)';
+    image.style.transformOrigin = 'center center';
+}
+
+// 下载图片
+function downloadImage(url) {
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = '操作截图_' + new Date().getTime() + '.jpg';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+// 鼠标拖拽功能
+function startDrag(e) {
+    e.preventDefault();
+    window.isDragging = true;
+    window.startX = e.clientX - window.translateX;
+    window.startY = e.clientY - window.translateY;
+    
+    document.addEventListener('mousemove', dragImage);
+    document.addEventListener('mouseup', stopDrag);
+}
+
+function startDragTouch(e) {
+    e.preventDefault();
+    if (e.touches.length === 1) {
+        window.isDragging = true;
+        window.startX = e.touches[0].clientX - window.translateX;
+        window.startY = e.touches[0].clientY - window.translateY;
+        
+        document.addEventListener('touchmove', dragImageTouch);
+        document.addEventListener('touchend', stopDrag);
+    }
+}
+
+function dragImage(e) {
+    if (!window.isDragging) return;
+    e.preventDefault();
+    
+    window.translateX = e.clientX - window.startX;
+    window.translateY = e.clientY - window.startY;
+    
+    const image = document.getElementById('modal-image');
+    if (image) {
+        image.style.transform = `scale(${window.currentImageScale}) translate(${window.translateX}px, ${window.translateY}px)`;
+    }
+}
+
+function dragImageTouch(e) {
+    if (!window.isDragging || e.touches.length !== 1) return;
+    e.preventDefault();
+    
+    window.translateX = e.touches[0].clientX - window.startX;
+    window.translateY = e.touches[0].clientY - window.startY;
+    
+    const image = document.getElementById('modal-image');
+    if (image) {
+        image.style.transform = `scale(${window.currentImageScale}) translate(${window.translateX}px, ${window.translateY}px)`;
+    }
+}
+
+function stopDrag() {
+    window.isDragging = false;
+    document.removeEventListener('mousemove', dragImage);
+    document.removeEventListener('touchmove', dragImageTouch);
+    document.removeEventListener('mouseup', stopDrag);
+    document.removeEventListener('touchend', stopDrag);
+}
+
+// 鼠标滚轮缩放
+function handleWheel(e) {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    zoomImage(delta);
+}
+
+// 双击图片重置
+function setupImageDoubleClick() {
+    const image = document.getElementById('modal-image');
+    if (image) {
+        image.addEventListener('dblclick', resetImage);
+    }
+}
+
+// 初始化图片模态框时设置双击事件
+// 修改openImageModal函数，在最后添加：
+// setupImageDoubleClick();
 
 // 按ESC关闭图片
 document.addEventListener('keydown', function(e) {

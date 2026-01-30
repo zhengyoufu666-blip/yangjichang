@@ -821,37 +821,104 @@ tbody tr:last-child td {
 
 .modal-content {
     position: relative;
-    max-width: 90%;
-    max-height: 90%;
+    max-width: 95vw;
+    max-height: 95vh;
+    width: auto;
+    height: auto;
     text-align: center;
+    display: flex;
+    flex-direction: column;
+    background: rgba(0, 0, 0, 0.9);
+    border-radius: 12px;
+    overflow: hidden;
 }
 
 .modal-content img {
     max-width: 100%;
-    max-height: 100%;
-    border-radius: 8px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    max-height: calc(95vh - 60px);
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    border-radius: 0;
+    box-shadow: none;
+    cursor: grab;
+    user-select: none;
+    -webkit-user-drag: none;
+}
+
+.modal-content img:active {
+    cursor: grabbing;
+}
+
+/* 图片容器，支持滚动 */
+.image-container {
+    flex: 1;
+    overflow: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    min-height: 200px;
 }
 
 .close-btn {
     position: absolute;
-    top: -40px;
-    right: 0;
+    top: 15px;
+    right: 15px;
     color: white;
     font-size: 28px;
     font-weight: bold;
     cursor: pointer;
-    background: rgba(0, 0, 0, 0.5);
-    width: 32px;
-    height: 32px;
+    background: rgba(0, 0, 0, 0.7);
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
+    z-index: 10000;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    transition: all 0.2s ease;
 }
 
 .close-btn:hover {
+    background: rgba(255, 0, 0, 0.8);
+    transform: scale(1.1);
+    border-color: rgba(255, 255, 255, 0.6);
+}
+
+/* 图片控制按钮 */
+.image-controls {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    padding: 15px;
     background: rgba(0, 0, 0, 0.8);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.control-btn {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 20px;
+    padding: 8px 16px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.control-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.control-btn:active {
+    transform: translateY(0);
 }
 
 /* 图片占位符 */
