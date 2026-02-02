@@ -869,126 +869,65 @@ function createPieChartModal(fundData) {
     modal.innerHTML = `
         <div class="modal-content">
             <div class="modal-header">
-                <h3>📊 资产分布可视化</h3>
+                <h3>📊 基金持仓分布</h3>
                 <span class="close-btn" onclick="closePieChartModal()">&times;</span>
             </div>
             <div class="modal-body">
-                <div class="dashboard-container">
-                    <!-- 顶部概览卡片 -->
-                    <div class="overview-cards">
-                        <div class="overview-card">
-                            <div class="card-icon">📈</div>
-                            <div class="card-content">
-                                <div class="card-title">基金数量</div>
-                                <div class="card-value">${fundData.length}</div>
-                            </div>
-                        </div>
-                        <div class="overview-card">
-                            <div class="card-icon">🎯</div>
-                            <div class="card-content">
-                                <div class="card-title">最大持仓</div>
-                                <div class="card-value">${fundData.length > 0 ? fundData[0].percentage.toFixed(1) + '%' : '0%'}</div>
-                                <div class="card-subtitle">${fundData.length > 0 ? fundData[0].name : ''}</div>
-                            </div>
-                        </div>
-                        <div class="overview-card">
-                            <div class="card-icon">⚖️</div>
-                            <div class="card-content">
-                                <div class="card-title">持仓均衡度</div>
-                                <div class="card-value">${calculateDiversificationScore(fundData)}</div>
-                                <div class="card-subtitle">分数越高越均衡</div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- 主图表区域 -->
-                    <div class="main-chart-area">
-                        <div class="chart-with-legend">
-                            <div class="chart-container">
-                                <h4>基金持仓分布</h4>
-                                <div class="chart-wrapper">
-                                    <svg width="350" height="350" viewBox="0 0 350 350" class="pie-chart">
-                                        ${fundPieSlices.map((slice, index) => `
-                                            <g class="pie-slice fund-slice" data-index="${index}">
-                                                <path d="${slice.path}" 
-                                                      fill="${fundColors[index]}" stroke="white" stroke-width="2"
-                                                      onmouseover="showFundTooltip(${index}, event)"
-                                                      onmouseout="hideFundTooltip()">
-                                                </path>
-                                            </g>
-                                        `).join('')}
-                                        ${fundData.map((fund, index) => {
-                                            const labelAngle = fundPieSlices[index].middleAngle;
-                                            const labelX = 175 + Math.cos(labelAngle) * 110;
-                                            const labelY = 175 + Math.sin(labelAngle) * 110;
-                                            return `
-                                                <text x="${labelX}" y="${labelY}" text-anchor="middle" 
-                                                      class="pie-label" fill="white" font-weight="bold" font-size="11">
-                                                    ${fund.percentage.toFixed(1)}%
-                                                </text>
-                                            `;
-                                        }).join('')}
-                                        <!-- 中心文字 -->
-                                        <text x="175" y="175" text-anchor="middle" class="center-text" fill="#2c3e50" font-weight="bold" font-size="16">
-                                            持仓分布
-                                        </text>
-                                        <text x="175" y="195" text-anchor="middle" class="center-subtext" fill="#6c757d" font-size="12">
-                                            ${fundData.length} 只基金
-                                        </text>
-                                    </svg>
-                                </div>
-                            </div>
-                            
-                            <div class="legend-container">
-                                <h4>基金明细 <span class="legend-count">(${fundData.length})</span></h4>
-                                <div class="legend-scroll">
-                                    ${fundData.map((fund, index) => `
-                                        <div class="legend-item" onmouseover="highlightPieSlice(${index})" onmouseout="unhighlightPieSlice()">
-                                            <span class="legend-rank">${index + 1}</span>
-                                            <span class="legend-color" style="background-color: ${fundColors[index]}"></span>
-                                            <div class="legend-info">
-                                                <div class="legend-name">${fund.name}</div>
-                                                <div class="legend-code">${fund.code}</div>
-                                            </div>
-                                            <div class="legend-percentage">
-                                                <div class="percentage-bar">
-                                                    <div class="percentage-fill" style="width: ${fund.percentage}%"></div>
-                                                </div>
-                                                <span class="percentage-value">${fund.percentage.toFixed(1)}%</span>
-                                            </div>
-                                        </div>
-                                    `).join('')}
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- 操作分类区域 -->
-                        ${operationData.length > 0 ? `
-                        <div class="operation-section">
-                            <h4>操作类型分布</h4>
-                            <div class="operation-grid">
-                                ${operationData.map((op, index) => `
-                                    <div class="operation-card">
-                                        <div class="operation-icon">${getOperationIcon(op.operation)}</div>
-                                        <div class="operation-info">
-                                            <div class="operation-name">${op.operation}</div>
-                                            <div class="operation-percentage">${op.percentage.toFixed(1)}%</div>
-                                        </div>
-                                        <div class="operation-bar">
-                                            <div class="operation-bar-fill" style="width: ${op.percentage}%"></div>
-                                        </div>
-                                    </div>
+                <div class="chart-with-legend">
+                    <div class="chart-container">
+                        <h4>基金持仓分布</h4>
+                        <div class="chart-wrapper">
+                            <svg width="350" height="350" viewBox="0 0 350 350" class="pie-chart">
+                                ${fundPieSlices.map((slice, index) => `
+                                    <g class="pie-slice fund-slice" data-index="${index}">
+                                        <path d="${slice.path}" 
+                                              fill="${fundColors[index]}" stroke="white" stroke-width="2"
+                                              onmouseover="showFundTooltip(${index}, event)"
+                                              onmouseout="hideFundTooltip()">
+                                        </path>
+                                    </g>
                                 `).join('')}
-                            </div>
+                                ${fundData.map((fund, index) => {
+                                    const labelAngle = fundPieSlices[index].middleAngle;
+                                    const labelX = 175 + Math.cos(labelAngle) * 110;
+                                    const labelY = 175 + Math.sin(labelAngle) * 110;
+                                    return `
+                                        <text x="${labelX}" y="${labelY}" text-anchor="middle" 
+                                              class="pie-label" fill="white" font-weight="bold" font-size="11">
+                                            ${fund.percentage.toFixed(1)}%
+                                        </text>
+                                    `;
+                                }).join('')}
+                                <!-- 中心文字 -->
+                                <text x="175" y="175" text-anchor="middle" class="center-text" fill="#2c3e50" font-weight="bold" font-size="16">
+                                    持仓分布
+                                </text>
+                                <text x="175" y="195" text-anchor="middle" class="center-subtext" fill="#6c757d" font-size="12">
+                                    ${fundData.length} 只基金
+                                </text>
+                            </svg>
                         </div>
-                        ` : ''}
                     </div>
                     
-                    <!-- 分析建议 -->
-                    <div class="analysis-section">
-                        <h4>📋 持仓分析</h4>
-                        <div class="analysis-content">
-                            ${generateAnalysis(fundData)}
+                    <div class="legend-container">
+                        <h4>基金明细 <span class="legend-count">(${fundData.length})</span></h4>
+                        <div class="legend-scroll">
+                            ${fundData.map((fund, index) => `
+                                <div class="legend-item" onmouseover="highlightPieSlice(${index})" onmouseout="unhighlightPieSlice()">
+                                    <span class="legend-rank">${index + 1}</span>
+                                    <span class="legend-color" style="background-color: ${fundColors[index]}"></span>
+                                    <div class="legend-info">
+                                        <div class="legend-name">${fund.name}</div>
+                                        <div class="legend-code">${fund.code}</div>
+                                    </div>
+                                    <div class="legend-percentage">
+                                        <div class="percentage-bar">
+                                            <div class="percentage-fill" style="width: ${fund.percentage}%"></div>
+                                        </div>
+                                        <span class="percentage-value">${fund.percentage.toFixed(1)}%</span>
+                                    </div>
+                                </div>
+                            `).join('')}
                         </div>
                     </div>
                 </div>
@@ -1409,6 +1348,250 @@ function showErrorState(message) {
 // 隐藏加载状态
 function hideLoadingState() {
     // 加载状态会在数据渲染时自动替换，所以这里不需要额外操作
+}
+
+// ============================================
+// 收益记录功能
+// ============================================
+
+// 生成2026年12个月的收益记录数据（对应sheet表格）
+function generate2026ProfitData() {
+    const profitData = [];
+    
+    // 生成2026年1月到12月的数据
+    for (let month = 1; month <= 12; month++) {
+        const monthStr = month.toString().padStart(2, '0');
+        const timeKey = `2026${monthStr}`;
+        
+        // 根据sheet表格，只有202601有数据
+        let profitRanking = '';
+        let totalProfit = 0;
+        
+        if (timeKey === '202601') {
+            profitRanking = 'https://s3.bmp.ovh/2026/02/02/kKXYJUHw.png';
+            totalProfit = 5844;
+        }
+        
+        profitData.push({
+            time: timeKey,
+            profitRanking: profitRanking,
+            totalProfit: totalProfit
+        });
+    }
+    
+    return profitData;
+}
+
+// 收益记录数据（对应sheet表格的2026年12个月数据）
+const profitRecordData = generate2026ProfitData();
+
+// 显示收益记录模态框
+function showProfitRecord() {
+    try {
+        if (!profitRecordData || profitRecordData.length === 0) {
+            showProfitRecordError('暂无收益记录数据');
+            return;
+        }
+        
+        // 创建收益记录模态框
+        createProfitRecordModal(profitRecordData);
+        
+    } catch (error) {
+        console.error('显示收益记录失败:', error);
+        showProfitRecordError(`显示收益记录时出错: ${error.message}`);
+    }
+}
+
+// 显示收益记录错误提示
+function showProfitRecordError(message) {
+    // 创建错误提示模态框
+    const errorModal = document.createElement('div');
+    errorModal.className = 'profit-record-modal';
+    errorModal.innerHTML = `
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <h3>⚠️ 无法显示收益记录</h3>
+                <span class="close-btn" onclick="this.parentElement.parentElement.remove()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div style="text-align: center; padding: 20px;">
+                    <div style="font-size: 3rem; margin-bottom: 16px;">📈</div>
+                    <p style="color: #2c3e50; margin-bottom: 16px;">${message}</p>
+                    <div style="display: flex; gap: 12px; justify-content: center; margin-top: 24px;">
+                        <button class="chart-btn" onclick="this.parentElement.parentElement.parentElement.parentElement.remove()">关闭</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(errorModal);
+}
+
+// 创建收益记录模态框
+function createProfitRecordModal(profitData) {
+    // 创建模态框
+    const modal = document.createElement('div');
+    modal.className = 'profit-record-modal';
+    
+    // 格式化时间显示（将202601显示为2026年01月）
+    const formatTime = (timeStr) => {
+        if (timeStr.length === 6) {
+            const year = timeStr.substring(0, 4);
+            const month = timeStr.substring(4, 6);
+            return `${year}年${month}月`;
+        }
+        return timeStr;
+    };
+    
+    // 格式化收益显示
+    const formatProfit = (profit) => {
+        if (profit === 0) return '-';
+        return profit.toLocaleString('zh-CN');
+    };
+    
+    // 格式化图片显示（模仿主动卖出页效果）
+    const formatImage = (imageUrl, time) => {
+        if (!imageUrl) return '-';
+        
+        const timeFormatted = formatTime(time);
+        return `
+            <div class="image-cell">
+                <img src="${imageUrl}" alt="${timeFormatted}收益排序图" loading="lazy" 
+                     onclick="openProfitImageModal('${imageUrl}', '${timeFormatted}')"
+                     onerror="this.onerror=null; this.style.display='none'; this.parentElement.innerHTML='<span class=\\'image-placeholder\\'>📷 图片加载失败</span>';">
+            </div>
+        `;
+    };
+    
+    modal.innerHTML = `
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>📋 月度收益明细</h3>
+                <span class="close-btn" onclick="closeProfitRecordModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="table-container">
+                    <table class="profit-table">
+                        <thead>
+                            <tr>
+                                <th>时间</th>
+                                <th>收益排序</th>
+                                <th>总收益</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${profitData.map(record => `
+                                <tr>
+                                    <td class="time-cell">${formatTime(record.time)}</td>
+                                    <td class="ranking-cell">
+                                        ${formatImage(record.profitRanking, record.time)}
+                                    </td>
+                                    <td class="profit-cell ${record.totalProfit > 0 ? 'profit-positive' : record.totalProfit < 0 ? 'profit-negative' : ''}">
+                                        ${formatProfit(record.totalProfit)}
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // 点击背景关闭
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            closeProfitRecordModal();
+        }
+    });
+}
+
+// 生成收益分析
+function generateProfitAnalysis(profitData) {
+    if (profitData.length === 0) {
+        return '<p class="analysis-text info">暂无收益数据可供分析</p>';
+    }
+    
+    const validProfits = profitData.filter(p => p.totalProfit !== 0);
+    const totalProfit = validProfits.reduce((sum, p) => sum + p.totalProfit, 0);
+    const avgProfit = totalProfit / validProfits.length;
+    const maxProfit = Math.max(...validProfits.map(p => p.totalProfit));
+    const minProfit = Math.min(...validProfits.map(p => p.totalProfit));
+    
+    let analysis = '';
+    
+    // 总体收益分析
+    if (totalProfit > 0) {
+        analysis += `<p class="analysis-text success">✅ <strong>总体盈利</strong>：累计收益 ${totalProfit.toLocaleString('zh-CN')} 元，表现良好。</p>`;
+    } else if (totalProfit < 0) {
+        analysis += `<p class="analysis-text warning">⚠️ <strong>总体亏损</strong>：累计亏损 ${Math.abs(totalProfit).toLocaleString('zh-CN')} 元，需关注风险。</p>`;
+    } else {
+        analysis += `<p class="analysis-text info">📊 <strong>收支平衡</strong>：累计收益为0，保持稳健。</p>`;
+    }
+    
+    // 收益稳定性分析
+    const profitRange = maxProfit - minProfit;
+    if (profitRange > avgProfit * 2) {
+        analysis += `<p class="analysis-text warning">📈 <strong>收益波动较大</strong>：最高收益 ${maxProfit.toLocaleString('zh-CN')} 元，最低收益 ${minProfit.toLocaleString('zh-CN')} 元，波动性较高。</p>`;
+    } else {
+        analysis += `<p class="analysis-text success">🎯 <strong>收益相对稳定</strong>：月度收益在合理范围内波动。</p>`;
+    }
+    
+    // 最近月份分析
+    const latestRecord = profitData[profitData.length - 1];
+    if (latestRecord.totalProfit > 0) {
+        analysis += `<p class="analysis-text success">📅 <strong>最近月份盈利</strong>：${formatTime(latestRecord.time)} 收益 ${latestRecord.totalProfit.toLocaleString('zh-CN')} 元。</p>`;
+    } else if (latestRecord.totalProfit < 0) {
+        analysis += `<p class="analysis-text warning">📅 <strong>最近月份亏损</strong>：${formatTime(latestRecord.time)} 亏损 ${Math.abs(latestRecord.totalProfit).toLocaleString('zh-CN')} 元。</p>`;
+    }
+    
+    return analysis;
+}
+
+// 格式化时间显示（辅助函数）
+function formatTime(timeStr) {
+    if (timeStr.length === 6) {
+        const year = timeStr.substring(0, 4);
+        const month = timeStr.substring(4, 6);
+        return `${year}年${month}月`;
+    }
+    return timeStr;
+}
+
+// 关闭收益记录模态框
+function closeProfitRecordModal() {
+    const modal = document.querySelector('.profit-record-modal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+// 打开收益记录图片模态框（复用主动卖出页的图片模态框功能）
+function openProfitImageModal(imageUrl, title) {
+    // 使用现有的openImageModal函数，但添加标题
+    openImageModal(imageUrl);
+    
+    // 添加标题到模态框
+    setTimeout(() => {
+        const modal = document.querySelector('.image-modal');
+        if (modal) {
+            const modalContent = modal.querySelector('.modal-content');
+            if (modalContent) {
+                // 添加标题
+                const titleElement = document.createElement('div');
+                titleElement.className = 'profit-image-title';
+                titleElement.innerHTML = `
+                    <div style="color: white; text-align: center; padding: 10px; background: rgba(0,0,0,0.7);">
+                        <h4 style="margin: 0; font-size: 1rem;">${title} - 收益排序图</h4>
+                    </div>
+                `;
+                modalContent.insertBefore(titleElement, modalContent.firstChild);
+            }
+        }
+    }, 10);
 }
 
 // 页面加载完成后执行
