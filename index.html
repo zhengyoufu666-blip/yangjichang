@@ -48,15 +48,16 @@
                                 <th>日期</th>
                                 <th>基金代码</th>
                                 <th>基金名称</th>
-                                <th>日限购</th>
-                                <th>操作</th>
+                                <th class="sortable" data-column="dailyReturn" onclick="sortTable('dailyReturn')">参考日回报/% <span class="sort-icon">↕</span></th>
                                 <th class="sortable" data-column="percentage" onclick="sortTable('percentage')">持仓占比 <span class="sort-icon">↕</span></th>
+                                <th>操作</th>
                                 <th class="sortable" data-column="cumulative" onclick="sortTable('cumulative')">累计收益 <span class="sort-icon">↕</span></th>
+                                <th>日限购</th>
                                 <th>备注</th>
                             </tr>
                         </thead>
                         <tbody id="dca-body">
-                            <tr class="loading-row"><td colspan="8">
+                            <tr class="loading-row"><td colspan="9">
                                 <div class="loading-content">
                                     <div class="loading-spinner"></div>
                                     <span>正在加载数据...</span>

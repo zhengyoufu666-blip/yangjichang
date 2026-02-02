@@ -93,6 +93,32 @@ function formatPercentage(value, decimals = 2) {
     return num.toFixed(decimals) + '%';
 }
 
+// 格式化参考日回报
+function formatDailyReturn(value) {
+    if (value === null || value === undefined || value === '') return '-';
+    
+    // 尝试解析数字
+    const num = typeof value === 'number' ? value : parseFloat(value);
+    if (isNaN(num)) return value; // 如果不是数字，返回原始值
+    
+    // 格式化：x.xx 格式，保留2位小数
+    return num.toFixed(2);
+}
+
+// 获取日回报样式类
+function getDailyReturnClass(value) {
+    if (value === null || value === undefined || value === '') return '';
+    
+    // 尝试解析数字
+    const num = typeof value === 'number' ? value : parseFloat(value);
+    if (isNaN(num)) return '';
+    
+    // 正数用红色，负数用绿色
+    if (num > 0) return 'daily-return-positive';
+    if (num < 0) return 'daily-return-negative';
+    return ''; // 0值没有特殊样式
+}
+
 // 计算持仓占比
 function calculateHoldingsPercentage(data) {
     if (!data || data.length === 0) return data;
@@ -380,7 +406,7 @@ function renderDCATable(data) {
     const tbody = document.getElementById('dca-body');
 
     if (!data || data.length === 0) {
-        tbody.innerHTML = '<tr class="empty-state"><td colspan="8">暂无定投记录</td></tr>';
+        tbody.innerHTML = '<tr class="empty-state"><td colspan="9">暂无定投记录</td></tr>';
         return;
     }
 
@@ -394,20 +420,24 @@ function renderDCATable(data) {
         // 持仓占比：使用计算出的占比，如果没有则显示"-"
         const percentage = row._percentage !== undefined ? row._percentage : 
                           (row['持仓占比'] ? parseFloat(row['持仓占比']) : null);
+        // 参考日回报：使用参考日回报数据，如果没有则显示"-"
+        const dailyReturn = row['参考日回报'] || row['参考日回报/%'] || row['参考日回报%'] || null;
+        const dailyReturnClass = getDailyReturnClass(dailyReturn);
         
         return `
         <tr>
             <td>${formatDate(row['日期'] || row['日期'])}</td>
             <td><code>${row['基金代码'] || row['基金代码'] || '-'}</code></td>
             <td>${row['基金名称'] || row['基金名称'] || '-'}</td>
-            <td>${row['基金限购'] || row['基金限购'] || '-'}</td>
+            <td><span class="daily-return ${dailyReturnClass}">${dailyReturn ? formatDailyReturn(dailyReturn) : '-'}</span></td>
+            <td><strong>${formatPercentage(percentage)}</strong></td>
             <td>
                 <span class="operation-tag ${bgClass}">
                     ${row['操作'] || row['操作'] || '-'}
                 </span>
             </td>
-            <td><strong>${formatPercentage(percentage)}</strong></td>
             <td>${cumulativeAmount ? formatCurrency(cumulativeAmount) : '-'}</td>
+            <td>${row['基金限购'] || row['基金限购'] || '-'}</td>
             <td>${row['备注'] || row['备注'] || '-'}</td>
         </tr>
     `;
@@ -548,7 +578,7 @@ function renderDCATableWithSort(data) {
     const tbody = document.getElementById('dca-body');
 
     if (!data || data.length === 0) {
-        tbody.innerHTML = '<tr class="empty-state"><td colspan="8">暂无定投记录</td></tr>';
+        tbody.innerHTML = '<tr class="empty-state"><td colspan="9">暂无定投记录</td></tr>';
         return;
     }
 
@@ -569,6 +599,14 @@ function renderDCATableWithSort(data) {
                 // 累计收益排序：只使用累计收益列，如果没有则视为0
                 valueA = parseFloat((a['累计收益'] || '0').toString().replace(/[^\d.-]/g, '')) || 0;
                 valueB = parseFloat((b['累计收益'] || '0').toString().replace(/[^\d.-]/g, '')) || 0;
+            } else if (sortState.column === 'dailyReturn') {
+                // 日回报排序：使用参考日回报数据
+                const dailyReturnA = a['参考日回报'] || a['参考日回报/%'] || a['参考日回报%'] || null;
+                const dailyReturnB = b['参考日回报'] || b['参考日回报/%'] || b['参考日回报%'] || null;
+                
+                // 解析日回报值，如果不是数字则视为0
+                valueA = dailyReturnA ? parseFloat(dailyReturnA) || 0 : 0;
+                valueB = dailyReturnB ? parseFloat(dailyReturnB) || 0 : 0;
             }
             
             return sortState.direction === 'asc' ? valueA - valueB : valueB - valueA;
@@ -583,19 +621,24 @@ function renderDCATableWithSort(data) {
         const percentage = row._percentage !== undefined ? row._percentage : 
                           (row['持仓占比'] ? parseFloat(row['持仓占比']) : null);
         
+        // 参考日回报：使用参考日回报数据，如果没有则显示"-"
+        const dailyReturn = row['参考日回报'] || row['参考日回报/%'] || row['参考日回报%'] || null;
+        const dailyReturnClass = getDailyReturnClass(dailyReturn);
+        
         return `
         <tr>
             <td>${formatDate(row['日期'] || row['日期'])}</td>
             <td><code>${row['基金代码'] || row['基金代码'] || '-'}</code></td>
             <td>${row['基金名称'] || row['基金名称'] || '-'}</td>
-            <td>${row['基金限购'] || row['基金限购'] || '-'}</td>
+            <td><span class="daily-return ${dailyReturnClass}">${dailyReturn ? formatDailyReturn(dailyReturn) : '-'}</span></td>
+            <td><strong>${formatPercentage(percentage)}</strong></td>
             <td>
                 <span class="operation-tag ${bgClass}">
                     ${row['操作'] || row['操作'] || '-'}
                 </span>
             </td>
-            <td><strong>${formatPercentage(percentage)}</strong></td>
             <td>${cumulativeAmount ? formatCurrency(cumulativeAmount) : '-'}</td>
+            <td>${row['基金限购'] || row['基金限购'] || '-'}</td>
             <td>${row['备注'] || row['备注'] || '-'}</td>
         </tr>
     `;
@@ -1281,7 +1324,7 @@ async function fetchData(retryCount = 0) {
         lastFetchTime = now;
 
         // 渲染
-        if (sortState.direction && (sortState.column === 'percentage' || sortState.column === 'cumulative')) {
+        if (sortState.direction && (sortState.column === 'percentage' || sortState.column === 'cumulative' || sortState.column === 'dailyReturn')) {
             renderDCATableWithSort(dca);
         } else {
             renderDCATable(dca);
@@ -1312,7 +1355,7 @@ function showLoadingState() {
     
     if (dcaBody) {
         dcaBody.innerHTML = `
-            <tr class="loading-row"><td colspan="8">
+            <tr class="loading-row"><td colspan="9">
                 <div class="loading-content">
                     <div class="loading-spinner"></div>
                     <span>正在加载数据...</span>
@@ -1340,7 +1383,7 @@ function showErrorState(message) {
     
     if (dcaBody) {
         dcaBody.innerHTML = `
-            <tr class="error-state"><td colspan="8">
+            <tr class="error-state"><td colspan="9">
                 <div class="error-content">
                     <div class="error-icon">⚠️</div>
                     <div class="error-message">${message}</div>
