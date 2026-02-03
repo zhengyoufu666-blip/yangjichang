@@ -306,6 +306,7 @@ th {
     background-color: #f8f9fa;
     position: relative;
     transition: all 0.2s ease;
+    white-space: nowrap; /* 防止表头文本换行 */
 }
 
 th::after {
@@ -327,6 +328,13 @@ td {
     padding: 12px 16px;
     border-bottom: 1px solid #e9ecef;
     font-size: var(--font-size-sm);
+}
+
+/* 支持换行文本的单元格 */
+td.with-line-breaks {
+    white-space: pre-wrap; /* 保留空白和换行 */
+    word-break: break-word; /* 长单词换行 */
+    line-height: 1.5;
 }
 
 /* 排序功能 */
@@ -1700,6 +1708,7 @@ footer {
     font-weight: 500;
     color: #2c3e50;
     min-width: 120px;
+    font-family: monospace; /* 使用等宽字体，保持数字对齐 */
 }
 
 .ranking-cell {
@@ -1723,10 +1732,21 @@ footer {
     transform: scale(1.2);
 }
 
+/* 收益排序文字内容样式 */
+.ranking-cell .ranking-text {
+    font-size: 0.9375rem;
+    color: #495057;
+    word-break: break-word;
+    max-width: 200px;
+    display: inline-block;
+    text-align: center;
+}
+
 .profit-cell {
     font-weight: 600;
     text-align: right;
     min-width: 100px;
+    font-family: monospace; /* 使用等宽字体，保持数字对齐 */
 }
 
 .profit-positive {

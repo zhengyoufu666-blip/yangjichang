@@ -210,6 +210,38 @@ function formatImageContent(content) {
     return content.toString();
 }
 
+// 处理图片加载错误
+function handleImageError(imgElement) {
+    imgElement.onerror = null; // 防止循环错误
+    imgElement.style.display = 'none';
+    
+    // 创建占位符
+    const placeholder = document.createElement('span');
+    placeholder.className = 'image-placeholder';
+    placeholder.textContent = '📷 图片加载失败';
+    
+    // 替换图片
+    if (imgElement.parentNode) {
+        imgElement.parentNode.appendChild(placeholder);
+    }
+}
+
+// 格式化文本，将换行符转换为HTML换行标签
+function formatTextWithLineBreaks(content) {
+    if (!content) return '-';
+    
+    const contentStr = content.toString();
+    
+    // 将换行符转换为<br>标签
+    // 处理不同平台的换行符：\n, \r\n, \r
+    const withLineBreaks = contentStr
+        .replace(/\r\n/g, '<br>')  // Windows换行
+        .replace(/\r/g, '<br>')    // Mac旧版换行
+        .replace(/\n/g, '<br>');   // Unix/Linux换行
+    
+    return withLineBreaks;
+}
+
 // 打开图片模态框
 function openImageModal(imageUrl) {
     // 如果已有模态框，先关闭
@@ -438,7 +470,7 @@ function renderDCATable(data) {
             </td>
             <td>${cumulativeAmount ? formatCurrency(cumulativeAmount) : '-'}</td>
             <td>${row['基金限购'] || row['基金限购'] || '-'}</td>
-            <td>${row['备注'] || row['备注'] || '-'}</td>
+            <td>${formatTextWithLineBreaks(row['备注'] || row['备注'])}</td>
         </tr>
     `;
     }).join('');
@@ -466,7 +498,7 @@ function renderManualTable(data) {
             <td>${formatImageContent(row['每日定投'] || row['每日定投'])}</td>
             <td>${formatImageContent(row['买入操作'] || row['买入操作'])}</td>
             <td>${formatImageContent(row['卖出操作'] || row['卖出操作'])}</td>
-            <td>${row['当日留言'] || row['当日留言'] || '-'}</td>
+            <td>${formatTextWithLineBreaks(row['当日留言'] || row['当日留言'])}</td>
         </tr>
     `).join('');
 }
@@ -498,7 +530,7 @@ function renderDailyTable(data) {
             <td><code>${row['基金代号'] || row['基金代号'] || row['基金代码'] || '-'}</code></td>
             <td>${row['基金名字'] || row['基金名称'] || row['基金名字'] || '-'}</td>
             <td><strong>${formatCurrency(row['金额'] || row['金额'])}</strong></td>
-            <td>${row['备注'] || row['备注'] || '-'}</td>
+            <td>${formatTextWithLineBreaks(row['备注'] || row['备注'])}</td>
         </tr>
     `).join('');
 }
@@ -639,7 +671,7 @@ function renderDCATableWithSort(data) {
             </td>
             <td>${cumulativeAmount ? formatCurrency(cumulativeAmount) : '-'}</td>
             <td>${row['基金限购'] || row['基金限购'] || '-'}</td>
-            <td>${row['备注'] || row['备注'] || '-'}</td>
+            <td>${formatTextWithLineBreaks(row['备注'] || row['备注'])}</td>
         </tr>
     `;
     }).join('');
@@ -1354,36 +1386,28 @@ function hideLoadingState() {
 // 收益记录功能
 // ============================================
 
-// 生成2026年12个月的收益记录数据（对应sheet表格）
-function generate2026ProfitData() {
-    const profitData = [];
-    
-    // 生成2026年1月到12月的数据
-    for (let month = 1; month <= 12; month++) {
-        const monthStr = month.toString().padStart(2, '0');
-        const timeKey = `2026${monthStr}`;
-        
-        // 根据sheet表格，只有202601有数据
-        let profitRanking = '';
-        let totalProfit = 0;
-        
-        if (timeKey === '202601') {
-            profitRanking = 'https://s3.bmp.ovh/2026/02/02/kKXYJUHw.png';
-            totalProfit = 5844;
-        }
-        
-        profitData.push({
-            time: timeKey,
-            profitRanking: profitRanking,
-            totalProfit: totalProfit
-        });
-    }
-    
-    return profitData;
+// 生成收益记录数据（完全匹配用户提供的表格数据）
+function generateProfitData() {
+    // 完全按照用户提供的表格数据
+    return [
+        { time: '2025', profitRanking: 'https://s3.bmp.ovh/2026/02/03/f8JXr345.png', totalProfit: 18000 },
+        { time: '202601', profitRanking: 'https://s3.bmp.ovh/2026/02/02/kKXYJUHw.png', totalProfit: 5844 },
+        { time: '202602', profitRanking: '-', totalProfit: '-' },
+        { time: '202603', profitRanking: '-', totalProfit: '-' },
+        { time: '202604', profitRanking: '-', totalProfit: '-' },
+        { time: '202605', profitRanking: '-', totalProfit: '-' },
+        { time: '202606', profitRanking: '-', totalProfit: '-' },
+        { time: '202607', profitRanking: '-', totalProfit: '-' },
+        { time: '202608', profitRanking: '-', totalProfit: '-' },
+        { time: '202609', profitRanking: '-', totalProfit: '-' },
+        { time: '202610', profitRanking: '-', totalProfit: '-' },
+        { time: '202611', profitRanking: '-', totalProfit: '-' },
+        { time: '202612', profitRanking: '-', totalProfit: '-' }
+    ];
 }
 
-// 收益记录数据（对应sheet表格的2026年12个月数据）
-const profitRecordData = generate2026ProfitData();
+// 收益记录数据（完全匹配用户提供的表格数据）
+const profitRecordData = generateProfitData();
 
 // 显示收益记录模态框
 function showProfitRecord() {
@@ -1434,34 +1458,59 @@ function createProfitRecordModal(profitData) {
     const modal = document.createElement('div');
     modal.className = 'profit-record-modal';
     
-    // 格式化时间显示（将202601显示为2026年01月）
-    const formatTime = (timeStr) => {
-        if (timeStr.length === 6) {
-            const year = timeStr.substring(0, 4);
-            const month = timeStr.substring(4, 6);
-            return `${year}年${month}月`;
+    // 格式化时间显示（完全按照表格内容显示）
+    const formatTimeDisplay = (timeValue) => {
+        // 直接返回原始值，不做任何格式化
+        return timeValue;
+    };
+    
+    // 格式化收益显示（支持数字和"-"）
+    const formatProfitDisplay = (profitValue) => {
+        if (profitValue === '-') return '-';
+        if (typeof profitValue === 'number') {
+            return profitValue.toLocaleString('zh-CN');
         }
-        return timeStr;
+        // 如果是字符串形式的数字，尝试转换
+        const num = parseFloat(profitValue);
+        if (!isNaN(num)) {
+            return num.toLocaleString('zh-CN');
+        }
+        // 其他情况返回原始值
+        return profitValue;
     };
     
-    // 格式化收益显示
-    const formatProfit = (profit) => {
-        if (profit === 0) return '-';
-        return profit.toLocaleString('zh-CN');
-    };
-    
-    // 格式化图片显示（模仿主动卖出页效果）
-    const formatImage = (imageUrl, time) => {
-        if (!imageUrl) return '-';
+    // 格式化收益排序显示（支持文字+图片混合内容）
+    const formatRankingDisplay = (rankingValue, timeValue) => {
+        if (rankingValue === '-') return '-';
         
-        const timeFormatted = formatTime(time);
-        return `
-            <div class="image-cell">
-                <img src="${imageUrl}" alt="${timeFormatted}收益排序图" loading="lazy" 
-                     onclick="openProfitImageModal('${imageUrl}', '${timeFormatted}')"
-                     onerror="this.onerror=null; this.style.display='none'; this.parentElement.innerHTML='<span class=\\'image-placeholder\\'>📷 图片加载失败</span>';">
-            </div>
-        `;
+        // 检查是否是图片URL
+        const isImageUrl = rankingValue && 
+                          (rankingValue.startsWith('http://') || 
+                           rankingValue.startsWith('https://') ||
+                           rankingValue.startsWith('//')) &&
+                          (rankingValue.includes('.png') || 
+                           rankingValue.includes('.jpg') || 
+                           rankingValue.includes('.jpeg') ||
+                           rankingValue.includes('.gif') ||
+                           rankingValue.includes('.webp'));
+        
+        if (isImageUrl) {
+            // 是图片URL，显示图片
+            // 使用安全的HTML构建方式，避免引号问题
+            const safeRankingValue = rankingValue.replace(/'/g, "\\'");
+            const safeTimeValue = timeValue.replace(/'/g, "\\'");
+            
+            return `
+                <div class="image-cell">
+                    <img src="${safeRankingValue}" alt="${safeTimeValue}收益排序图" loading="lazy" 
+                         onclick="openProfitImageModal('${safeRankingValue}', '${safeTimeValue}')"
+                         onerror="handleImageError(this)">
+                </div>
+            `;
+        } else {
+            // 是文字内容，直接显示
+            return `<span class="ranking-text">${rankingValue}</span>`;
+        }
     };
     
     modal.innerHTML = `
@@ -1480,19 +1529,26 @@ function createProfitRecordModal(profitData) {
                                 <th>总收益</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            ${profitData.map(record => `
-                                <tr>
-                                    <td class="time-cell">${formatTime(record.time)}</td>
-                                    <td class="ranking-cell">
-                                        ${formatImage(record.profitRanking, record.time)}
-                                    </td>
-                                    <td class="profit-cell ${record.totalProfit > 0 ? 'profit-positive' : record.totalProfit < 0 ? 'profit-negative' : ''}">
-                                        ${formatProfit(record.totalProfit)}
-                                    </td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
+                                <tbody>
+                                    ${profitData.map(record => {
+                                        // 判断收益是否是正数（用于样式）
+                                        const isPositive = typeof record.totalProfit === 'number' && record.totalProfit > 0;
+                                        const isNegative = typeof record.totalProfit === 'number' && record.totalProfit < 0;
+                                        const profitClass = isPositive ? 'profit-positive' : isNegative ? 'profit-negative' : '';
+                                        
+                                        return `
+                                        <tr>
+                                            <td class="time-cell">${formatTimeDisplay(record.time)}</td>
+                                            <td class="ranking-cell">
+                                                ${formatRankingDisplay(record.profitRanking, record.time)}
+                                            </td>
+                                            <td class="profit-cell ${profitClass}">
+                                                ${formatProfitDisplay(record.totalProfit)}
+                                            </td>
+                                        </tr>
+                                        `;
+                                    }).join('')}
+                                </tbody>
                     </table>
                 </div>
             </div>
@@ -1592,6 +1648,58 @@ function openProfitImageModal(imageUrl, title) {
             }
         }
     }, 10);
+}
+
+// 图片错误处理函数
+function handleImageError(imgElement) {
+    try {
+        // 创建错误占位符
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'image-error-placeholder';
+        errorDiv.style.cssText = `
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 50px;
+            height: 30px;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            color: #6c757d;
+            font-size: 12px;
+            cursor: default;
+        `;
+        
+        // 添加错误图标和文本
+        errorDiv.innerHTML = `
+            <div style="text-align: center;">
+                <div style="font-size: 14px; margin-bottom: 2px;">📷</div>
+                <div>加载失败</div>
+            </div>
+        `;
+        
+        // 替换图片元素
+        if (imgElement.parentNode) {
+            imgElement.parentNode.replaceChild(errorDiv, imgElement);
+        }
+    } catch (error) {
+        console.error('图片错误处理失败:', error);
+        // 如果替换失败，至少隐藏图片
+        if (imgElement) {
+            imgElement.style.display = 'none';
+        }
+    }
+}
+
+// 文本换行处理函数
+function formatTextWithLineBreaks(text) {
+    if (!text) return '';
+    
+    // 将各种换行符统一转换为HTML换行标签
+    return text
+        .replace(/\r\n/g, '<br>')  // Windows换行
+        .replace(/\r/g, '<br>')    // Mac换行
+        .replace(/\n/g, '<br>');   // Unix/Linux换行
 }
 
 // 页面加载完成后执行
