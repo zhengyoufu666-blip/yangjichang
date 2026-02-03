@@ -456,9 +456,12 @@ function renderDCATable(data) {
         const dailyReturn = row['参考日回报'] || row['参考日回报/%'] || row['参考日回报%'] || null;
         const dailyReturnClass = getDailyReturnClass(dailyReturn);
         
+        // 灵活获取分类字段，支持多种可能的字段名称
+        const category = row['分类'] || row['category'] || row['Category'] || row['类型'] || row['类别'] || '-';
+        
         return `
         <tr>
-            <td>${formatDate(row['日期'] || row['日期'])}</td>
+            <td>${category}</td>
             <td><code>${row['基金代码'] || row['基金代码'] || '-'}</code></td>
             <td>${row['基金名称'] || row['基金名称'] || '-'}</td>
             <td><span class="daily-return ${dailyReturnClass}">${dailyReturn ? formatDailyReturn(dailyReturn) : '-'}</span></td>
@@ -657,9 +660,12 @@ function renderDCATableWithSort(data) {
         const dailyReturn = row['参考日回报'] || row['参考日回报/%'] || row['参考日回报%'] || null;
         const dailyReturnClass = getDailyReturnClass(dailyReturn);
         
+        // 灵活获取分类字段，支持多种可能的字段名称
+        const category = row['分类'] || row['category'] || row['Category'] || row['类型'] || row['类别'] || '-';
+        
         return `
         <tr>
-            <td>${formatDate(row['日期'] || row['日期'])}</td>
+            <td>${category}</td>
             <td><code>${row['基金代码'] || row['基金代码'] || '-'}</code></td>
             <td>${row['基金名称'] || row['基金名称'] || '-'}</td>
             <td><span class="daily-return ${dailyReturnClass}">${dailyReturn ? formatDailyReturn(dailyReturn) : '-'}</span></td>
@@ -1294,6 +1300,21 @@ async function fetchData(retryCount = 0) {
         cachedData = { dca, manual, disclaimer, dailyNote };
         lastFetchTime = now;
 
+        // 调试：检查数据结构
+        console.log('定投基金数据:', dca);
+        if (dca && dca.length > 0) {
+            console.log('第一行数据:', dca[0]);
+            console.log('第一行的所有字段:', Object.keys(dca[0]));
+            // 检查分类字段
+            const firstRow = dca[0];
+            const possibleCategoryFields = ['分类', 'category', 'Category', '类型', '类别'];
+            for (const field of possibleCategoryFields) {
+                if (firstRow[field] !== undefined) {
+                    console.log(`找到可能的分类字段 "${field}":`, firstRow[field]);
+                }
+            }
+        }
+        
         // 渲染
         if (sortState.direction && (sortState.column === 'percentage' || sortState.column === 'cumulative' || sortState.column === 'dailyReturn')) {
             renderDCATableWithSort(dca);
