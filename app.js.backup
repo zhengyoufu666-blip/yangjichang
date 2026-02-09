@@ -1,0 +1,150 @@
+// 列隐藏/显示功能
+function toggleColumnVisibility() {
+    const modal = document.createElement('div');
+    modal.className = 'column-modal';
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <h3>📋 显示/隐藏列</h3>
+                <span class="close-btn" onclick="closeColumnModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="column-controls">
+                    <div class="column-checkbox">
+                        <input type="checkbox" id="col-date" checked onchange="toggleColumn('date')">
+                        <label for="col-date">日期</label>
+                    </div>
+                    <div class="column-checkbox">
+                        <input type="checkbox" id="col-code" checked onchange="toggleColumn('code')">
+                        <label for="col-code">基金代码</label>
+                    </div>
+                    <div class="column-checkbox">
+                        <input type="checkbox" id="col-name" checked onchange="toggleColumn('name')">
+                        <label for="col-name">基金名称</label>
+                    </div>
+                    <div class="column-checkbox">
+                        <input type="checkbox" id="col-dailyReturn" checked onchange="toggleColumn('dailyReturn')">
+                        <label for="col-dailyReturn">参考日回报/%</label>
+                    </div>
+                    <div class="column-checkbox">
+                        <input type="checkbox" id="col-percentage" checked onchange="toggleColumn('percentage')">
+                        <label for="col-percentage">持仓占比</label>
+                    </div>
+                    <div class="column-checkbox">
+                        <input type="checkbox" id="col-operation" checked onchange="toggleColumn('operation')">
+                        <label for="col-operation">操作</label>
+                    </div>
+                    <div class="column-checkbox">
+                        <input type="checkbox" id="col-cumulative" checked onchange="toggleColumn('cumulative')">
+                        <label for="col-cumulative">累计收益</label>
+                    </div>
+                    <div class="column-checkbox">
+                        <input type="checkbox" id="col-limit" checked onchange="toggleColumn('limit')">
+                        <label for="col-limit">日限购</label>
+                    </div>
+                    <div class="column-checkbox">
+                        <input type="checkbox" id="col-remark" checked onchange="toggleColumn('remark')">
+                        <label for="col-remark">备注</label>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button class="control-btn" onclick="showAllColumns()">显示所有列</button>
+                    <button class="control-btn" onclick="closeColumnModal()">关闭</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // 点击背景关闭
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            closeColumnModal();
+        }
+    });
+    
+    // 阻止模态框内容点击关闭
+    modal.querySelector('.modal-content').addEventListener('click', function(e) {
+        e.stopPropagation();
+    });
+    
+    // 初始化复选框状态
+    initializeColumnCheckboxes();
+}
+
+function closeColumnModal() {
+    const modal = document.querySelector('.column-modal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+function initializeColumnCheckboxes() {
+    const columns = ['date', 'code', 'name', 'dailyReturn', 'percentage', 'operation', 'cumulative', 'limit', 'remark'];
+    
+    columns.forEach(column => {
+        const checkbox = document.getElementById(`col-${column}`);
+        if (checkbox) {
+            // 检查列是否已隐藏
+            const table = document.getElementById('dca-table');
+            if (table) {
+                const header = table.querySelector(`th[data-column="${column}"]`);
+                const isHidden = header && header.style.display === 'none';
+                checkbox.checked = !isHidden;
+            }
+        }
+    });
+}
+
+function toggleColumn(column) {
+    const checkbox = document.getElementById(`col-${column}`);
+    const table = document.getElementById('dca-table');
+    
+    if (!table || !checkbox) return;
+    
+    const showColumn = checkbox.checked;
+    const columnIndex = getColumnIndex(column);
+    
+    if (columnIndex === -1) return;
+    
+    // 隐藏/显示表头
+    const header = table.querySelector(`th[data-column="${column}"]`);
+    if (header) {
+        header.style.display = showColumn ? '' : 'none';
+    }
+    
+    // 隐藏/显示表格数据
+    const rows = table.querySelectorAll('tbody tr');
+    rows.forEach(row => {
+        const cell = row.cells[columnIndex];
+        if (cell) {
+            cell.style.display = showColumn ? '' : 'none';
+        }
+    });
+}
+
+function getColumnIndex(column) {
+    const table = document.getElementById('dca-table');
+    if (!table) return -1;
+    
+    const headers = table.querySelectorAll('thead th');
+    for (let i = 0; i < headers.length; i++) {
+        if (headers[i].getAttribute('data-column') === column) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+function showAllColumns() {
+    const columns = ['date', 'code', 'name', 'dailyReturn', 'percentage', 'operation', 'cumulative', 'limit', 'remark'];
+    
+    columns.forEach(column => {
+        const checkbox = document.getElementById(`col-${column}`);
+        if (checkbox) {
+            checkbox.checked = true;
+            toggleColumn(column);
+        }
+    });
+}
