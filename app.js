@@ -7,6 +7,20 @@ let cachedData = null;
 let lastFetchTime = 0;
 const CACHE_DURATION = 5 * 60 * 1000;
 
+// 网络配置
+const NETWORK_CONFIG = {
+    timeout: 8000, // 8秒超时
+    retryAttempts: 2,
+    retryDelay: 1500
+};
+
+// 网络状态监控
+let networkStatus = {
+    isOnline: navigator.onLine,
+    googleAppsScriptAvailable: true,
+    fundDataApiAvailable: true
+};
+
 // 当前显示的标签
 let currentTab = 'dca';
 
@@ -1309,14 +1323,15 @@ function closePieChartModal() {
 
 
 
-// 获取数据
+// 改进的数据获取函数 - 带超时和错误处理
 async function fetchData(retryCount = 0) {
-    const maxRetries = 3;
+    const maxRetries = NETWORK_CONFIG.retryAttempts;
     const now = Date.now();
     
     // 显示加载状态
     showLoadingState();
     
+    // 检查缓存
     if (cachedData && (now - lastFetchTime) < CACHE_DURATION) {
         console.log('使用缓存数据');
         renderDCATable(cachedData.dca);
@@ -1327,14 +1342,32 @@ async function fetchData(retryCount = 0) {
     }
 
     try {
-        updateLoadingProgress(20, '正在连接数据源...');
-        const response = await fetch(GOOGLE_SHEET_API_URL);
+        updateLoadingProgress(20, `正在连接数据源... ${retryCount > 0 ? `(第${retryCount + 1}次尝试)` : ''}`);
+        
+        // 创建带超时的请求
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => {
+            controller.abort();
+        }, NETWORK_CONFIG.timeout);
+
+        const response = await fetch(GOOGLE_SHEET_API_URL, {
+            signal: controller.signal,
+            headers: {
+                'Cache-Control': 'no-cache',
+                'Accept': 'application/json'
+            }
+        });
+
+        clearTimeout(timeoutId);
 
         if (!response.ok) {
+            networkStatus.googleAppsScriptAvailable = false;
             if (response.status === 404) {
                 throw new Error('数据源不存在 (404)');
             } else if (response.status === 403) {
-                throw new Error('访问被拒绝 (403)');
+                throw new Error('访问被拒绝，可能是网络限制 (403)');
+            } else if (response.status >= 500) {
+                throw new Error(`服务器错误 (${response.status})`);
             } else {
                 throw new Error(`网络请求失败 (${response.status})`);
             }
@@ -1400,6 +1433,12 @@ async function fetchData(retryCount = 0) {
     } catch (error) {
         console.error('获取数据失败:', error);
         
+        // 更新网络状态
+        if (error.name === 'AbortError') {
+            networkStatus.googleAppsScriptAvailable = false;
+            console.log('请求超时，可能是网络限制');
+        }
+        
         // 确保隐藏加载状态
         hideLoadingState();
         
@@ -1409,17 +1448,25 @@ async function fetchData(retryCount = 0) {
             renderDCATable(cachedData.dca);
             renderManualTable(cachedData.active);
             renderDisclaimer(cachedData.disclaimer);
-            showErrorState(`数据加载失败，显示缓存数据 (${error.message})`);
+            showNetworkWarning('数据来自缓存，网络连接可能存在问题');
             return;
         }
         
-        // 重试逻辑
-        if (retryCount < maxRetries) {
+        // 重试逻辑 - 但对于超时错误减少重试
+        const shouldRetry = retryCount < maxRetries && 
+                           !(error.name === 'AbortError' && retryCount > 0);
+        
+        if (shouldRetry) {
+            const delay = error.name === 'AbortError' ? 
+                         NETWORK_CONFIG.retryDelay * 2 : // 超时时延长等待
+                         NETWORK_CONFIG.retryDelay * (retryCount + 1);
+            
             console.log(`重试中... (${retryCount + 1}/${maxRetries})`);
-            setTimeout(() => fetchData(retryCount + 1), 2000 * (retryCount + 1));
-            showErrorState(`加载失败，正在重试... (${retryCount + 1}/${maxRetries})`);
+            setTimeout(() => fetchData(retryCount + 1), delay);
+            showErrorState(`${getErrorMessage(error)}，正在重试... (${retryCount + 1}/${maxRetries + 1})`);
         } else {
-            showErrorState(`加载失败: ${error.message}<br><small>请检查网络连接或稍后重试</small>`);
+            // 显示详细错误信息和建议
+            showNetworkErrorWithSuggestions(error);
         }
     }
 }
@@ -1594,6 +1641,162 @@ function showErrorState(message) {
             </td></tr>
         `;
     }
+}
+
+// 获取友好的错误信息
+function getErrorMessage(error) {
+    if (error.name === 'AbortError') {
+        return '连接超时';
+    } else if (error.message.includes('Failed to fetch')) {
+        return '网络连接失败';
+    } else if (error.message.includes('403')) {
+        return '访问被限制';
+    } else if (error.message.includes('404')) {
+        return '数据源不存在';
+    } else if (error.message.includes('500')) {
+        return '服务器错误';
+    } else {
+        return '加载失败';
+    }
+}
+
+// 显示网络警告
+function showNetworkWarning(message) {
+    // 创建顶部警告条
+    const existingWarning = document.querySelector('.network-warning');
+    if (existingWarning) {
+        existingWarning.remove();
+    }
+    
+    const warning = document.createElement('div');
+    warning.className = 'network-warning';
+    warning.innerHTML = `
+        <div class="warning-content">
+            <span class="warning-icon">⚠️</span>
+            <span>${message}</span>
+            <button class="warning-close" onclick="this.parentElement.parentElement.remove()">×</button>
+        </div>
+    `;
+    document.body.insertBefore(warning, document.body.firstChild);
+    
+    // 5秒后自动隐藏
+    setTimeout(() => {
+        if (warning.parentElement) {
+            warning.remove();
+        }
+    }, 5000);
+}
+
+// 显示详细的网络错误和建议
+function showNetworkErrorWithSuggestions(error) {
+    let suggestions = '';
+    let errorType = '';
+    
+    if (error.name === 'AbortError') {
+        errorType = '连接超时';
+        suggestions = `
+            <ul>
+                <li>🌐 检查您的网络连接是否稳定</li>
+                <li>🔄 尝试刷新页面重新加载</li>
+                <li>🔧 某些网络环境可能限制访问Google服务</li>
+                <li>📱 尝试使用手机热点或其他网络</li>
+            </ul>
+        `;
+    } else if (error.message.includes('403')) {
+        errorType = '访问受限';
+        suggestions = `
+            <ul>
+                <li>🚫 您的网络可能限制访问Google Apps Script</li>
+                <li>🔄 尝试使用不同的网络环境</li>
+                <li>🕐 稍后再试，可能是临时限制</li>
+            </ul>
+        `;
+    } else {
+        errorType = '网络错误';
+        suggestions = `
+            <ul>
+                <li>🌐 检查网络连接</li>
+                <li>🔄 刷新页面重试</li>
+                <li>🕐 稍后再试</li>
+            </ul>
+        `;
+    }
+    
+    const dcaBody = document.getElementById('dca-body');
+    const manualBody = document.getElementById('manual-body');
+    
+    const errorContent = `
+        <tr class="network-error"><td colspan="9">
+            <div class="network-error-content">
+                <div class="error-header">
+                    <div class="error-icon">🚫</div>
+                    <div>
+                        <h3>${errorType}</h3>
+                        <p>数据加载失败，这可能是网络环境限制导致的</p>
+                    </div>
+                </div>
+                <div class="error-suggestions">
+                    <h4>建议解决方案：</h4>
+                    ${suggestions}
+                </div>
+                <div class="error-actions">
+                    <button class="retry-btn" onclick="fetchData()">重新尝试</button>
+                    <button class="help-btn" onclick="showNetworkHelp()">网络帮助</button>
+                </div>
+            </div>
+        </td></tr>
+    `;
+    
+    if (dcaBody) {
+        dcaBody.innerHTML = errorContent;
+    }
+    
+    if (manualBody) {
+        manualBody.innerHTML = `
+            <tr class="network-error"><td colspan="5">
+                <div class="network-error-content">
+                    <div class="error-message">数据加载失败 - ${errorType}</div>
+                </div>
+            </td></tr>
+        `;
+    }
+}
+
+// 显示网络帮助信息
+function showNetworkHelp() {
+    showModal('network-help', '网络连接帮助', `
+        <div class="help-content">
+            <h3>🌐 网络连接问题排查</h3>
+            
+            <div class="help-section">
+                <h4>常见原因：</h4>
+                <ul>
+                    <li><strong>公司/学校网络限制：</strong> 部分企业网络会屏蔽Google服务</li>
+                    <li><strong>防火墙设置：</strong> 本地防火墙可能阻止某些请求</li>
+                    <li><strong>DNS问题：</strong> DNS解析可能存在问题</li>
+                </ul>
+            </div>
+            
+            <div class="help-section">
+                <h4>解决方案：</h4>
+                <ol>
+                    <li><strong>切换网络：</strong> 尝试使用手机热点或家庭网络</li>
+                    <li><strong>检查防火墙：</strong> 临时关闭防火墙测试</li>
+                    <li><strong>更换浏览器：</strong> 尝试使用其他浏览器</li>
+                    <li><strong>清除缓存：</strong> 清除浏览器缓存和Cookie</li>
+                </ol>
+            </div>
+            
+            <div class="help-section">
+                <h4>测试连接：</h4>
+                <p>您可以尝试直接访问：</p>
+                <a href="https://script.google.com" target="_blank" class="test-link">
+                    https://script.google.com
+                </a>
+                <p><small>如果无法打开，说明您的网络环境限制了Google服务访问</small></p>
+            </div>
+        </div>
+    `);
 }
 
 // 隐藏加载状态
