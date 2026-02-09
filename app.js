@@ -471,9 +471,17 @@ document.addEventListener('keydown', function(e) {
 
 // 渲染定投基金表格
 function renderDCATable(data) {
+    console.log('🎨 [renderDCATable] 开始渲染，数据:', data);
+    console.log('🎨 [renderDCATable] 数据类型:', typeof data, '数组长度:', Array.isArray(data) ? data.length : 'N/A');
+    
     const tbody = document.getElementById('dca-body');
+    if (!tbody) {
+        console.error('❌ [renderDCATable] 找不到dca-body元素');
+        return;
+    }
 
     if (!data || data.length === 0) {
+        console.warn('⚠️ [renderDCATable] 数据为空，显示空状态');
         tbody.innerHTML = '<tr class="empty-state"><td colspan="9">暂无定投记录</td></tr>';
         return;
     }
@@ -1403,29 +1411,65 @@ async function fetchData(retryCount = 0) {
         lastFetchTime = now;
 
         // 调试：检查数据结构
-        console.log('定投基金数据:', dca);
+        console.log('🔍 [DEBUG] 定投基金数据:', dca);
+        console.log('🔍 [DEBUG] 主动操作数据:', active);
+        console.log('🔍 [DEBUG] 原始JSON数据结构:', Object.keys(jsonData));
+        
         if (dca && dca.length > 0) {
-            console.log('第一行数据:', dca[0]);
-            console.log('第一行的所有字段:', Object.keys(dca[0]));
+            console.log('🔍 [DEBUG] 定投基金第一行数据:', dca[0]);
+            console.log('🔍 [DEBUG] 定投基金第一行的所有字段:', Object.keys(dca[0]));
             // 检查分类字段
             const firstRow = dca[0];
             const possibleCategoryFields = ['分类', 'category', 'Category', '类型', '类别'];
             for (const field of possibleCategoryFields) {
                 if (firstRow[field] !== undefined) {
-                    console.log(`找到可能的分类字段 "${field}":`, firstRow[field]);
+                    console.log(`🔍 [DEBUG] 找到可能的分类字段 "${field}":`, firstRow[field]);
                 }
             }
+        } else {
+            console.error('❌ [DEBUG] 定投基金数据为空或未定义');
+        }
+        
+        if (active && active.length > 0) {
+            console.log('🔍 [DEBUG] 主动操作第一行数据:', active[0]);
+            console.log('🔍 [DEBUG] 主动操作第一行的所有字段:', Object.keys(active[0]));
+        } else {
+            console.error('❌ [DEBUG] 主动操作数据为空或未定义');
         }
         
         updateLoadingProgress(80, '正在渲染表格...');
-        // 渲染
-        if (sortState.direction && (sortState.column === 'percentage' || sortState.column === 'cumulative' || sortState.column === 'dailyReturn')) {
-            renderDCATableWithSort(dca);
-        } else {
-            renderDCATable(dca);
+        
+        // 渲染前的最终检查
+        console.log('🎨 [RENDER] 开始渲染表格...');
+        console.log('🎨 [RENDER] 定投基金数据长度:', dca ? dca.length : 'undefined');
+        console.log('🎨 [RENDER] 主动操作数据长度:', active ? active.length : 'undefined');
+        
+        try {
+            // 渲染定投基金表格
+            if (sortState.direction && (sortState.column === 'percentage' || sortState.column === 'cumulative' || sortState.column === 'dailyReturn')) {
+                console.log('🎨 [RENDER] 使用排序渲染定投基金表格');
+                renderDCATableWithSort(dca);
+            } else {
+                console.log('🎨 [RENDER] 使用普通渲染定投基金表格');
+                renderDCATable(dca);
+            }
+            console.log('✅ [RENDER] 定投基金表格渲染完成');
+            
+            // 渲染主动操作表格
+            console.log('🎨 [RENDER] 开始渲染主动操作表格');
+            renderManualTable(active);
+            console.log('✅ [RENDER] 主动操作表格渲染完成');
+            
+            // 渲染免责声明
+            console.log('🎨 [RENDER] 开始渲染免责声明');
+            renderDisclaimer(disclaimer);
+            console.log('✅ [RENDER] 免责声明渲染完成');
+            
+        } catch (renderError) {
+            console.error('❌ [RENDER] 渲染过程中发生错误:', renderError);
+            console.error('❌ [RENDER] 错误堆栈:', renderError.stack);
+            throw renderError; // 重新抛出错误以便catch块处理
         }
-        renderManualTable(active);  // 主动操作
-        renderDisclaimer(disclaimer);
         
         updateLoadingProgress(100, '加载完成！');
         setTimeout(() => hideLoadingState(), 500);
