@@ -67,6 +67,25 @@ out/
 *.crt
 *.p12
 
-# 注意：config.js 包含真实API配置，应当被包含在版本控制中
-# 如果您的 config.js 包含敏感信息，请取消下面一行的注释：
-# config.js
+# 备份文件和临时文件
+*.backup
+*.bak
+*.tmp
+*.temp
+*~
+*.orig
+*.rej
+
+# 编辑器和IDE相关
+.vscode/settings.json
+.vscode/launch.json
+.vscode/tasks.json
+.idea/workspace.xml
+.idea/tasks.xml
+
+# 项目特定的忽略文件
+PROJECT_STATUS.md
+TEST_REPORT.md
+_redirects
+*.backup.js
+*.old.js
