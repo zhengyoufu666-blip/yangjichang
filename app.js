@@ -16,6 +16,19 @@ let sortState = {
     direction: null // null: 默认, 'asc': 升序, 'desc': 降序
 };
 
+// 朋友专场基金代码配置
+const FRIENDS_ZONE_FUNDS = [
+    '012863',
+    '002834', 
+    '019414',
+    '013478',
+    '018463',
+    '008182',
+    '015790',
+    '002207',
+    '024329'
+];
+
 // 解析单行 CSV
 function parseCSVLine(line) {
     const result = [];
@@ -97,12 +110,21 @@ function formatPercentage(value, decimals = 2) {
 function formatDailyReturn(value) {
     if (value === null || value === undefined || value === '') return '-';
     
-    // 尝试解析数字
-    const num = typeof value === 'number' ? value : parseFloat(value);
-    if (isNaN(num)) return value; // 如果不是数字，返回原始值
+    // 如果是字符串且包含%，去掉%后重新格式化
+    let numStr = value;
+    if (typeof value === 'string') {
+        numStr = value.replace(/%/g, '').trim();
+    }
     
-    // 格式化：x.xx 格式，保留2位小数
-    return num.toFixed(2);
+    // 尝试解析数字
+    const num = typeof numStr === 'number' ? numStr : parseFloat(numStr);
+    if (isNaN(num)) {
+        return value; // 返回原始值
+    }
+    
+    // 格式化为1位小数并添加百分号
+    const formatted = num.toFixed(1);
+    return formatted + '%';
 }
 
 // 获取日回报样式类
@@ -445,38 +467,71 @@ function renderDCATable(data) {
     // 计算持仓占比
     const dataWithPercentage = calculateHoldingsPercentage(data);
 
-    tbody.innerHTML = dataWithPercentage.map(row => {
-        const bgClass = getOperationBackgroundClass(row['操作'] || row['操作']);
-        // 累计收益：只使用累计收益列数据，如果没有则显示"-"
-        const cumulativeAmount = row['累计收益'];
-        // 持仓占比：使用计算出的占比，如果没有则显示"-"
-        const percentage = row._percentage !== undefined ? row._percentage : 
-                          (row['持仓占比'] ? parseFloat(row['持仓占比']) : null);
-        // 参考日回报：使用参考日回报数据，如果没有则显示"-"
-        const dailyReturn = row['参考日回报'] || row['参考日回报/%'] || row['参考日回报%'] || null;
-        const dailyReturnClass = getDailyReturnClass(dailyReturn);
-        
-        // 灵活获取分类字段，支持多种可能的字段名称
-        const category = row['分类'] || row['category'] || row['Category'] || row['类型'] || row['类别'] || '-';
-        
-        return `
-        <tr>
-            <td>${category}</td>
-            <td><code>${row['基金代码'] || row['基金代码'] || '-'}</code></td>
-            <td>${row['基金名称'] || row['基金名称'] || '-'}</td>
-            <td><span class="daily-return ${dailyReturnClass}">${dailyReturn ? formatDailyReturn(dailyReturn) : '-'}</span></td>
-            <td><strong>${formatPercentage(percentage)}</strong></td>
-            <td>
-                <span class="operation-tag ${bgClass}">
-                    ${row['操作'] || row['操作'] || '-'}
-                </span>
-            </td>
-            <td>${cumulativeAmount ? formatCurrency(cumulativeAmount) : '-'}</td>
-            <td>${row['基金限购'] || row['基金限购'] || '-'}</td>
-            <td>${formatTextWithLineBreaks(row['备注'] || row['备注'])}</td>
-        </tr>
-    `;
-    }).join('');
+    tbody.innerHTML = dataWithPercentage.map(row => generateDCATableRow(row)).join('');
+}
+
+// 生成持仓表格行HTML
+function generateDCATableRow(row) {
+    const bgClass = getOperationBackgroundClass(row['操作'] || row['操作']);
+    // 累计收益：只使用累计收益列数据，如果没有则显示"-"
+    const cumulativeAmount = row['累计收益'];
+    // 持仓占比：使用计算出的占比，如果没有则显示"-"
+    const percentage = row._percentage !== undefined ? row._percentage : 
+                      (row['持仓占比'] ? parseFloat(row['持仓占比']) : null);
+    // 近6月回报：使用近6月回报数据（支持旧字段名兼容）
+    const dailyReturnRaw = row['近6月回报'] || row['参考日回报'] || row['参考日回报/%'] || row['参考日回报%'] || null;
+    // 确保 dailyReturn 是字符串，如果是数字则转换为字符串
+    const dailyReturn = dailyReturnRaw !== null && dailyReturnRaw !== undefined 
+        ? String(dailyReturnRaw) 
+        : null;
+    const dailyReturnClass = getDailyReturnClass(dailyReturn);
+    
+    // 灵活获取分类字段，支持多种可能的字段名称
+    const category = row['分类'] || row['category'] || row['Category'] || row['类型'] || row['类别'] || '-';
+    
+    // 解析涨跌幅和日期
+    let dailyReturnValue = '-';
+    let dailyReturnDate = '';
+    
+    if (dailyReturn) {
+        // 检查是否包含日期信息（格式：+1.23% (01-15)）
+        const dateMatch = dailyReturn.match(/\((\d{2}-\d{2})\)$/);
+        if (dateMatch) {
+            dailyReturnValue = formatDailyReturn(dailyReturn.replace(/\s*\(\d{2}-\d{2}\)$/, ''));
+            dailyReturnDate = dateMatch[1]; // 月-日格式
+        } else {
+            dailyReturnValue = formatDailyReturn(dailyReturn);
+        }
+    }
+    
+    return `
+    <tr data-fund-code="${row['基金代码'] || ''}">
+        <td>${category}</td>
+        <td><code class="fund-code">${row['基金代码'] || row['基金代码'] || '-'}</code></td>
+        <td>${row['基金名称'] || row['基金名称'] || '-'}</td>
+        <td class="daily-return-cell">
+            <div class="daily-return-container">
+                <span class="daily-return-value ${dailyReturnClass}">${dailyReturnValue}</span>
+                ${dailyReturnDate ? `<span class="daily-return-date">${dailyReturnDate}</span>` : ''}
+            </div>
+        </td>
+        <td class="valuation-cell" id="valuation-${row['基金代码'] || ''}">
+            <div class="valuation-container">
+                <span class="valuation-value">-</span>
+                <span class="valuation-date"></span>
+            </div>
+        </td>
+        <td><strong>${formatPercentage(percentage)}</strong></td>
+        <td>
+            <span class="operation-tag ${bgClass}">
+                ${row['操作'] || row['操作'] || '-'}
+            </span>
+        </td>
+        <td>${cumulativeAmount ? formatCurrency(cumulativeAmount) : '-'}</td>
+        <td>${row['基金限购'] || row['基金限购'] || '-'}</td>
+        <td>${formatTextWithLineBreaks(row['备注'] || row['备注'])}</td>
+    </tr>
+`;
 }
 
 // 渲染主动操作表格
@@ -484,7 +539,7 @@ function renderManualTable(data) {
     const tbody = document.getElementById('manual-body');
 
     if (!data || data.length === 0) {
-        tbody.innerHTML = '<tr class="empty-state"><td colspan="5">暂无操作记录</td></tr>';
+        tbody.innerHTML = '<tr class="empty-state"><td colspan="10">暂无定投记录</td></tr>';
         return;
     }
 
@@ -635,9 +690,9 @@ function renderDCATableWithSort(data) {
                 valueA = parseFloat((a['累计收益'] || '0').toString().replace(/[^\d.-]/g, '')) || 0;
                 valueB = parseFloat((b['累计收益'] || '0').toString().replace(/[^\d.-]/g, '')) || 0;
             } else if (sortState.column === 'dailyReturn') {
-                // 日回报排序：使用参考日回报数据
-                const dailyReturnA = a['参考日回报'] || a['参考日回报/%'] || a['参考日回报%'] || null;
-                const dailyReturnB = b['参考日回报'] || b['参考日回报/%'] || b['参考日回报%'] || null;
+                // 日回报排序：使用近6月回报数据（支持旧字段名兼容）
+                const dailyReturnA = a['近6月回报'] || a['参考日回报'] || a['参考日回报/%'] || a['参考日回报%'] || null;
+                const dailyReturnB = b['近6月回报'] || b['参考日回报'] || b['参考日回报/%'] || b['参考日回报%'] || null;
                 
                 // 解析日回报值，如果不是数字则视为0
                 valueA = dailyReturnA ? parseFloat(dailyReturnA) || 0 : 0;
@@ -656,30 +711,33 @@ function renderDCATableWithSort(data) {
         const percentage = row._percentage !== undefined ? row._percentage : 
                           (row['持仓占比'] ? parseFloat(row['持仓占比']) : null);
         
-        // 参考日回报：使用参考日回报数据，如果没有则显示"-"
-        const dailyReturn = row['参考日回报'] || row['参考日回报/%'] || row['参考日回报%'] || null;
+        // 近6月回报：使用近6月回报数据（支持旧字段名兼容）
+        const dailyReturnRaw = row['近6月回报'] || row['参考日回报'] || row['参考日回报/%'] || row['参考日回报%'] || null;
+        // 确保 dailyReturn 是字符串，如果是数字则转换为字符串
+        const dailyReturn = dailyReturnRaw !== null && dailyReturnRaw !== undefined 
+            ? String(dailyReturnRaw) 
+            : null;
         const dailyReturnClass = getDailyReturnClass(dailyReturn);
         
         // 灵活获取分类字段，支持多种可能的字段名称
         const category = row['分类'] || row['category'] || row['Category'] || row['类型'] || row['类别'] || '-';
         
-        return `
-        <tr>
-            <td>${category}</td>
-            <td><code>${row['基金代码'] || row['基金代码'] || '-'}</code></td>
-            <td>${row['基金名称'] || row['基金名称'] || '-'}</td>
-            <td><span class="daily-return ${dailyReturnClass}">${dailyReturn ? formatDailyReturn(dailyReturn) : '-'}</span></td>
-            <td><strong>${formatPercentage(percentage)}</strong></td>
-            <td>
-                <span class="operation-tag ${bgClass}">
-                    ${row['操作'] || row['操作'] || '-'}
-                </span>
-            </td>
-            <td>${cumulativeAmount ? formatCurrency(cumulativeAmount) : '-'}</td>
-            <td>${row['基金限购'] || row['基金限购'] || '-'}</td>
-            <td>${formatTextWithLineBreaks(row['备注'] || row['备注'])}</td>
-        </tr>
-    `;
+        // 解析涨跌幅和日期
+        let dailyReturnValue = '-';
+        let dailyReturnDate = '';
+        
+        if (dailyReturn) {
+            // 检查是否包含日期信息（格式：+1.23% (01-15)）
+            const dateMatch = dailyReturn.match(/\((\d{2}-\d{2})\)$/);
+            if (dateMatch) {
+                dailyReturnValue = formatDailyReturn(dailyReturn.replace(/\s*\(\d{2}-\d{2}\)$/, ''));
+                dailyReturnDate = dateMatch[1]; // 月-日格式
+            } else {
+                dailyReturnValue = formatDailyReturn(dailyReturn);
+            }
+        }
+        
+        return generateDCATableRow(row);
     }).join('');
 }
 
@@ -1269,6 +1327,7 @@ async function fetchData(retryCount = 0) {
     }
 
     try {
+        updateLoadingProgress(20, '正在连接数据源...');
         const response = await fetch(GOOGLE_SHEET_API_URL);
 
         if (!response.ok) {
@@ -1281,6 +1340,7 @@ async function fetchData(retryCount = 0) {
             }
         }
 
+        updateLoadingProgress(50, '正在解析数据...');
         const jsonData = await response.json();
 
         // 直接按 sheet 名称获取数据
@@ -1296,8 +1356,17 @@ async function fetchData(retryCount = 0) {
             dailyNote = firstRow['今日留言'] || '';
         }
 
+        // 数据验证
+        updateLoadingProgress(60, '正在验证数据...');
+        validateData({
+            dca,
+            active,
+            disclaimer,
+            jsonData
+        });
+
         // 更新缓存
-        cachedData = { dca, manual, disclaimer, dailyNote };
+        cachedData = { dca, active, disclaimer, dailyNote };
         lastFetchTime = now;
 
         // 调试：检查数据结构
@@ -1315,6 +1384,7 @@ async function fetchData(retryCount = 0) {
             }
         }
         
+        updateLoadingProgress(80, '正在渲染表格...');
         // 渲染
         if (sortState.direction && (sortState.column === 'percentage' || sortState.column === 'cumulative' || sortState.column === 'dailyReturn')) {
             renderDCATableWithSort(dca);
@@ -1324,10 +1394,24 @@ async function fetchData(retryCount = 0) {
         renderManualTable(active);  // 主动操作
         renderDisclaimer(disclaimer);
         
-        hideLoadingState();
+        updateLoadingProgress(100, '加载完成！');
+        setTimeout(() => hideLoadingState(), 500);
 
     } catch (error) {
         console.error('获取数据失败:', error);
+        
+        // 确保隐藏加载状态
+        hideLoadingState();
+        
+        // 检查是否有缓存数据可以显示
+        if (cachedData && (Date.now() - lastFetchTime) < CACHE_DURATION * 24) { // 24倍缓存时间，即2小时内的缓存
+            console.log('使用缓存数据作为降级方案');
+            renderDCATable(cachedData.dca);
+            renderManualTable(cachedData.active);
+            renderDisclaimer(cachedData.disclaimer);
+            showErrorState(`数据加载失败，显示缓存数据 (${error.message})`);
+            return;
+        }
         
         // 重试逻辑
         if (retryCount < maxRetries) {
@@ -1350,7 +1434,13 @@ function showLoadingState() {
             <tr class="loading-row"><td colspan="9">
                 <div class="loading-content">
                     <div class="loading-spinner"></div>
-                    <span>正在加载数据...</span>
+                    <div class="loading-progress">
+                        <span>正在加载数据...</span>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="loading-progress"></div>
+                        </div>
+                        <small id="loading-status">连接数据源...</small>
+                    </div>
                 </div>
             </td></tr>
         `;
@@ -1361,11 +1451,119 @@ function showLoadingState() {
             <tr class="loading-row"><td colspan="5">
                 <div class="loading-content">
                     <div class="loading-spinner"></div>
-                    <span>正在加载数据...</span>
+                    <div class="loading-progress">
+                        <span>正在加载数据...</span>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="loading-progress-2"></div>
+                        </div>
+                        <small id="loading-status-2">连接数据源...</small>
+                    </div>
                 </div>
             </td></tr>
         `;
     }
+}
+
+// 更新加载进度
+function updateLoadingProgress(progress, status) {
+    const progressBar = document.getElementById('loading-progress');
+    const statusText = document.getElementById('loading-status');
+    const progressBar2 = document.getElementById('loading-progress-2');
+    const statusText2 = document.getElementById('loading-status-2');
+    
+    if (progressBar) {
+        progressBar.style.width = `${progress}%`;
+    }
+    if (statusText) {
+        statusText.textContent = status;
+    }
+    if (progressBar2) {
+        progressBar2.style.width = `${progress}%`;
+    }
+    if (statusText2) {
+        statusText2.textContent = status;
+    }
+}
+
+// 数据验证函数
+function validateData(data) {
+    const { dca, active, disclaimer, jsonData } = data;
+    const warnings = [];
+    const errors = [];
+    
+    // 检查必要的 sheet 是否存在
+    if (!jsonData['定投基金']) {
+        warnings.push('缺少"定投基金"工作表，持仓表格将为空');
+    }
+    
+    if (!jsonData['主动操作']) {
+        warnings.push('缺少"主动操作"工作表，操作记录将为空');
+    }
+    
+    if (!jsonData['说明']) {
+        warnings.push('缺少"说明"工作表，风险提示将为空');
+    }
+    
+    // 检查数据格式
+    if (dca && dca.length > 0) {
+        const firstRow = dca[0];
+        
+        // 检查必要的字段
+        const requiredFields = ['基金代码', '基金名称', '操作'];
+        for (const field of requiredFields) {
+            if (firstRow[field] === undefined) {
+                warnings.push(`定投基金数据缺少"${field}"字段，可能影响显示`);
+            }
+        }
+        
+        // 检查数据质量
+        let emptyCodeCount = 0;
+        let emptyNameCount = 0;
+        
+        for (const row of dca) {
+            if (!row['基金代码'] || row['基金代码'].trim() === '') {
+                emptyCodeCount++;
+            }
+            if (!row['基金名称'] || row['基金名称'].trim() === '') {
+                emptyNameCount++;
+            }
+        }
+        
+        if (emptyCodeCount > 0) {
+            warnings.push(`${emptyCodeCount}条定投基金记录缺少基金代码`);
+        }
+        if (emptyNameCount > 0) {
+            warnings.push(`${emptyNameCount}条定投基金记录缺少基金名称`);
+        }
+    }
+    
+    if (active && active.length > 0) {
+        const firstRow = active[0];
+        
+        // 检查必要的字段
+        if (firstRow['操作时间'] === undefined) {
+            warnings.push('主动操作数据缺少"操作时间"字段，可能影响排序');
+        }
+    }
+    
+    // 输出验证结果
+    if (warnings.length > 0) {
+        console.warn('数据验证警告:', warnings);
+        
+        // 只在开发模式下显示警告
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+            warnings.forEach(warning => {
+                console.warn(`⚠️ ${warning}`);
+            });
+        }
+    }
+    
+    if (errors.length > 0) {
+        console.error('数据验证错误:', errors);
+        throw new Error(`数据验证失败: ${errors.join('; ')}`);
+    }
+    
+    return { warnings, errors };
 }
 
 // 显示错误状态
@@ -1400,7 +1598,23 @@ function showErrorState(message) {
 
 // 隐藏加载状态
 function hideLoadingState() {
-    // 加载状态会在数据渲染时自动替换，所以这里不需要额外操作
+    const dcaBody = document.getElementById('dca-body');
+    const manualBody = document.getElementById('manual-body');
+    
+    // 检查是否还在显示加载状态，如果是则清除
+    if (dcaBody && dcaBody.querySelector('.loading-row')) {
+        // 如果数据还未渲染，显示空状态
+        if (!cachedData || !cachedData.dca || cachedData.dca.length === 0) {
+            dcaBody.innerHTML = '<tr class="empty-state"><td colspan="9">暂无数据</td></tr>';
+        }
+    }
+    
+    if (manualBody && manualBody.querySelector('.loading-row')) {
+        // 如果数据还未渲染，显示空状态
+        if (!cachedData || !cachedData.active || cachedData.active.length === 0) {
+            manualBody.innerHTML = '<tr class="empty-state"><td colspan="5">暂无数据</td></tr>';
+        }
+    }
 }
 
 // ============================================
@@ -1723,7 +1937,1204 @@ function formatTextWithLineBreaks(text) {
         .replace(/\n/g, '<br>');   // Unix/Linux换行
 }
 
+// ==================== 实时刷新涨跌幅功能 ====================
+
+// 显示刷新状态提示
+function showRefreshStatus(message, type = 'info') {
+    // 移除现有的状态提示
+    const existingStatus = document.getElementById('refresh-status');
+    if (existingStatus) {
+        existingStatus.remove();
+    }
+    
+    // 创建新的状态提示
+    const statusDiv = document.createElement('div');
+    statusDiv.id = 'refresh-status';
+    statusDiv.className = `refresh-status ${type}`;
+    statusDiv.innerHTML = `
+        <span class="status-icon">${type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️'}</span>
+        <span class="status-message">${message}</span>
+    `;
+    
+    document.body.appendChild(statusDiv);
+    
+    // 3秒后自动隐藏
+    setTimeout(() => {
+        statusDiv.style.animation = 'slideOut 0.3s ease';
+        setTimeout(() => {
+            if (statusDiv.parentNode) {
+                statusDiv.remove();
+            }
+        }, 300);
+    }, 3000);
+}
+
+// 更新单个基金的估值显示
+function updateFundValuation(fundCode, valuationData) {
+    // 首先尝试通过ID查找估值单元格
+    let valuationCell = document.getElementById(`valuation-${fundCode}`);
+    
+    // 如果通过ID找不到，尝试通过行数据查找
+    if (!valuationCell) {
+        const row = document.querySelector(`tr[data-fund-code="${fundCode}"]`);
+        if (row) {
+            // 明确选择第5列的估值单元格（当日估值列）
+            // 使用更精确的选择器：先找到所有td，然后选择第5个（索引4）
+            const cells = row.querySelectorAll('td');
+            if (cells.length >= 5) {
+                valuationCell = cells[4]; // 第5列是当日估值
+                
+                // 验证这确实是估值单元格
+                if (!valuationCell.classList.contains('valuation-cell')) {
+                    console.warn(`基金 ${fundCode} 的第5列不是估值单元格，尝试查找.valuation-cell`);
+                    valuationCell = row.querySelector('td.valuation-cell');
+                }
+            }
+        }
+    }
+    
+    if (!valuationCell) {
+        console.error(`找不到基金 ${fundCode} 的估值单元格`);
+        return;
+    }
+    
+    // 验证找到的是正确的单元格
+    if (!valuationCell.classList.contains('valuation-cell')) {
+        console.error(`找到的单元格不是估值单元格:`, valuationCell);
+        return;
+    }
+    
+    const { value, date, className, isEstimated, rawData } = valuationData;
+    
+    // 生成数据源指示器
+    let sourceIndicator = '';
+    if (rawData && rawData.source) {
+        sourceIndicator = `<span class="data-source-indicator data-source-${rawData.source}"></span>`;
+    }
+    
+    // 生成估值标识
+    let valuationTypeClass = className || '';
+    if (isEstimated) {
+        valuationTypeClass += ' valuation-estimated';
+    } else if (rawData && rawData.isUSFund) {
+        valuationTypeClass += ' valuation-official';
+    }
+    
+    valuationCell.innerHTML = `
+        <div class="valuation-container">
+            <span class="valuation-value ${valuationTypeClass}">${value}</span>
+            ${date ? `<span class="valuation-date">${date}</span>` : ''}
+            ${sourceIndicator}
+        </div>
+    `;
+    
+    // 为美股基金添加行标识
+    if (rawData && rawData.isUSFund) {
+        const row = valuationCell.closest('tr');
+        if (row) {
+            row.setAttribute('data-fund-type', 'us');
+        }
+    }
+    
+    console.log(`✅ 更新基金 ${fundCode} 估值: ${value} (源:${rawData?.source || '未知'})`);
+}
+
+// 更新单个基金的涨跌幅显示
+function updateFundDailyReturn(fundCode, dailyReturnData) {
+    const rows = document.querySelectorAll('#dca-body tr[data-fund-code]');
+    
+    for (const row of rows) {
+        const rowFundCode = row.getAttribute('data-fund-code');
+        if (rowFundCode === fundCode) {
+            // 明确选择第4列的日回报单元格（近6月回报列）
+            const cells = row.querySelectorAll('td');
+            let returnCell = null;
+            
+            if (cells.length >= 4) {
+                returnCell = cells[3]; // 第4列是近6月回报
+                
+                // 验证这确实是日回报单元格
+                if (!returnCell.classList.contains('daily-return-cell')) {
+                    console.warn(`基金 ${fundCode} 的第4列不是日回报单元格，尝试查找.daily-return-cell`);
+                    returnCell = row.querySelector('td.daily-return-cell');
+                }
+            } else {
+                returnCell = row.querySelector('td.daily-return-cell');
+            }
+            
+            if (returnCell) {
+                // 额外验证：确保不是估值单元格
+                if (returnCell.classList.contains('valuation-cell')) {
+                    console.error(`错误：找到的单元格是估值单元格而不是日回报单元格`);
+                    return;
+                }
+                
+                const { value, date, className, rawData } = dailyReturnData;
+                
+                // 生成数据源指示器
+                let sourceIndicator = '';
+                if (rawData && rawData.source) {
+                    sourceIndicator = `<span class="data-source-indicator data-source-${rawData.source}"></span>`;
+                }
+                
+                returnCell.innerHTML = `
+                    <div class="daily-return-container">
+                        <span class="daily-return-value ${className}">${value}</span>
+                        ${date ? `<span class="daily-return-date">${date}</span>` : ''}
+                        ${sourceIndicator}
+                    </div>
+                `;
+                
+                // 为美股基金添加行标识
+                if (rawData && rawData.isUSFund) {
+                    row.setAttribute('data-fund-type', 'us');
+                }
+                
+                console.log(`✅ 更新基金 ${fundCode} 日回报: ${value} (源:${rawData?.source || '未知'})`);
+            } else {
+                console.error(`找不到基金 ${fundCode} 的日回报单元格`);
+            }
+            break;
+        }
+    }
+}
+
+// 从东方财富API获取基金涨跌幅和估值
+async function fetchFundDailyReturnFromAPI(fundCode) {
+    try {
+        // 优先使用天天基金网的涨跌幅接口（返回百分比）
+        const result = await fetchFromTiantianFund(fundCode);
+        return result;
+    } catch (error) {
+        console.error(`获取基金 ${fundCode} 数据失败:`, error);
+        return {
+            success: false,
+            error: error.message,
+            value: 'N/A',
+            date: '',
+            className: '',
+            rawData: null
+        };
+    }
+}
+
+// 东方财富基金数据获取函数
+async function fetchFromEastMoney(fundCode) {
+    try {
+        // 东方财富基金实时估值接口
+        const url = `https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&invt=2&fields=f3,f12,f13,f14,f2,f4,f152,f15&secids=0.${fundCode}&ut=fa5fd1943c7b386f172d6893dbfba10b`;
+        
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Referer': 'https://fund.eastmoney.com/',
+                'Accept': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP错误: ${response.status}`);
+        }
+
+        const data = await response.json();
+        
+        if (!data.data || !data.data.diff || data.data.diff.length === 0) {
+            // 如果东方财富没有数据，尝试备用接口（天天基金网）
+            return await fetchFromTiantianFund(fundCode);
+        }
+
+        const fundData = data.data.diff[0];
+        
+        // 解析数据
+        const changePercent = parseFloat(fundData.f3); // 涨跌幅
+        const currentPrice = parseFloat(fundData.f2); // 当前价格
+        const preClose = parseFloat(fundData.f4); // 昨收价
+        const updateTime = fundData.f152; // 更新时间
+        const fundName = fundData.f14; // 基金名称
+        
+        // 判断是否为美股基金
+        const isUSFund = await isUSStockFund(fundCode, fundName);
+        
+        // 格式化涨跌幅
+        let displayValue = 'N/A';
+        let className = '';
+        
+        if (!isNaN(changePercent)) {
+            displayValue = (changePercent >= 0 ? '+' : '') + changePercent.toFixed(2) + '%';
+            className = changePercent >= 0 ? 'positive' : 'negative';
+        }
+
+        // 格式化时间
+        let displayTime = '';
+        if (updateTime) {
+            const timeStr = updateTime.toString();
+            if (timeStr.length >= 8) {
+                displayTime = `${timeStr.substring(0,4)}-${timeStr.substring(4,6)}-${timeStr.substring(6,8)}`;
+            }
+        }
+
+        return {
+            success: true,
+            value: displayValue,
+            date: displayTime,
+            className: className,
+            rawData: {
+                changePercent,
+                currentPrice,
+                preClose,
+                updateTime,
+                fundName,
+                isUSFund,
+                source: 'eastmoney'
+            }
+        };
+
+    } catch (error) {
+        console.warn(`东方财富接口失败，尝试备用接口: ${error.message}`);
+        // 备用方案：使用天天基金网
+        return await fetchFromTiantianFund(fundCode);
+    }
+}
+
+// 备用接口：天天基金网
+async function fetchFromTiantianFund(fundCode) {
+    try {
+        const result = await jsonpManager.request(fundCode, 'dailyReturn');
+        
+        // 判断是否为美股基金（仅根据代码）
+        const isUSFund = await isUSStockFund(fundCode, '');
+        
+        return {
+            ...result,
+            rawData: {
+                ...result.rawData,
+                isUSFund,
+                source: 'tiantianfund'
+            }
+        };
+    } catch (error) {
+        throw error;
+    }
+}
+
+// JSONP管理器 - 处理多个并发JSONP请求
+const jsonpManager = {
+    requests: new Map(),
+    requestId: 0,
+    
+    // 发起JSONP请求
+    request(fundCode, type = 'valuation') {
+        return new Promise((resolve, reject) => {
+            const requestId = ++this.requestId;
+            let script = null;
+            let timeoutId = null;
+            
+            // 保存请求信息
+            this.requests.set(requestId, {
+                resolve,
+                reject,
+                fundCode,
+                type
+            });
+            
+            try {
+                // 保存原始jsonpgz函数
+                if (!window._originalJsonpgz) {
+                    window._originalJsonpgz = window.jsonpgz;
+                }
+                
+                // 重写全局jsonpgz函数
+                window.jsonpgz = (data) => {
+                    // 查找对应的请求
+                    const request = this.requests.get(requestId);
+                    if (!request) return;
+                    
+                    // 清理
+                    this.cleanup(requestId, script, timeoutId);
+                    
+                    if (!data) {
+                        request.reject(new Error('无数据'));
+                        return;
+                    }
+                    
+                    // 根据请求类型处理数据
+                    if (request.type === 'valuation') {
+                        this.handleValuationData(request, data);
+                    } else {
+                        this.handleDailyReturnData(request, data);
+                    }
+                };
+                
+                // 创建script标签
+                const url = `https://fundgz.1234567.com.cn/js/${fundCode}.js?_=${Date.now()}`;
+                script = document.createElement('script');
+                script.src = url;
+                script.type = 'text/javascript';
+                
+                // 错误处理
+                script.onerror = (error) => {
+                    const request = this.requests.get(requestId);
+                    if (request) {
+                        this.cleanup(requestId, script, timeoutId);
+                        request.reject(new Error(`JSONP加载失败: ${error.message}`));
+                    }
+                };
+                
+                // 设置超时
+                timeoutId = setTimeout(() => {
+                    const request = this.requests.get(requestId);
+                    if (request) {
+                        this.cleanup(requestId, script, timeoutId);
+                        request.reject(new Error('JSONP请求超时'));
+                    }
+                }, 10000); // 10秒超时
+                
+                // 添加到页面
+                document.head.appendChild(script);
+                
+            } catch (error) {
+                this.cleanup(requestId, script, timeoutId);
+                reject(error);
+            }
+        });
+    },
+    
+    // 清理资源
+    cleanup(requestId, script, timeoutId) {
+        // 移除script标签
+        if (script && script.parentNode) {
+            document.head.removeChild(script);
+        }
+        
+        // 清除超时
+        if (timeoutId) {
+            clearTimeout(timeoutId);
+        }
+        
+        // 移除请求记录
+        this.requests.delete(requestId);
+        
+        // 如果没有其他请求，恢复原始函数
+        if (this.requests.size === 0 && window._originalJsonpgz) {
+            window.jsonpgz = window._originalJsonpgz;
+            delete window._originalJsonpgz;
+        }
+    },
+    
+    // 处理估值数据 - 使用gszzl（估算增长率）作为日估值
+    handleValuationData(request, data) {
+        const gszzl = data.gszzl; // 估算增长率，如 "+0.90" 或 "-0.50"
+        const gztime = data.gztime; // 估算时间，如 "2024-01-15 15:00"
+        const dwjz = data.dwjz; // 单位净值（昨日），如 "1.2300"
+        const jzrq = data.jzrq; // 净值日期，如 "2024-01-14"
+        
+        // 如果没有估值数据，返回成功但显示 "-"（某些基金如C类可能没有实时估值）
+        if (!gszzl || gszzl === '' || gszzl === 'null') {
+            request.resolve({
+                success: true,
+                value: '-',
+                date: '',
+                navDate: '',
+                className: 'valuation-normal',
+                rawData: data,
+                isEstimated: false
+            });
+            return;
+        }
+        
+        // 直接使用返回的估算值，保留小数点后两位
+        let formattedValue = gszzl;
+        
+        // 确保有百分号
+        if (!formattedValue.includes('%')) {
+            formattedValue = formattedValue + '%';
+        }
+        
+        // 确保有正负号
+        if (!formattedValue.startsWith('+') && !formattedValue.startsWith('-')) {
+            const numValue = parseFloat(formattedValue);
+            if (!isNaN(numValue)) {
+                formattedValue = (numValue >= 0 ? '+' : '') + formattedValue;
+            }
+        }
+        
+        // 提取日期信息（月-日格式）
+        let dateStr = '';
+        if (gztime) {
+            const dateMatch = gztime.match(/(\d{4})-(\d{2})-(\d{2})/);
+            if (dateMatch) {
+                // 格式化为 月-日，如 "01-15"
+                dateStr = `${dateMatch[2]}-${dateMatch[3]}`;
+            }
+        }
+        
+        // 提取净值日期（月-日格式）
+        let navDateStr = '';
+        if (jzrq) {
+            const navDateMatch = jzrq.match(/(\d{4})-(\d{2})-(\d{2})/);
+            if (navDateMatch) {
+                navDateStr = `${navDateMatch[2]}-${navDateMatch[3]}`;
+            }
+        }
+        
+        // 确定样式类：正数红色，负数绿色
+        const numValue = parseFloat(gszzl);
+        let className = 'valuation-normal';
+        if (!isNaN(numValue)) {
+            if (numValue > 0) {
+                className = 'valuation-positive'; // 红色
+            } else if (numValue < 0) {
+                className = 'valuation-negative'; // 绿色
+            }
+        }
+        
+        request.resolve({
+            success: true,
+            value: formattedValue,
+            date: dateStr, // 估值更新日期（月-日）
+            navDate: navDateStr, // 净值日期（月-日）
+            className: className,
+            rawData: data,
+            // 额外信息
+            yesterdayNav: dwjz ? parseFloat(dwjz).toFixed(2) : null,
+            isEstimated: true // 标记为估算值
+        });
+    },
+    
+    // 处理涨跌幅数据
+    handleDailyReturnData(request, data) {
+        const gszzl = data.gszzl; // 估算增长率，如 "+0.90"
+        const gztime = data.gztime; // 估算时间，如 "2024-01-15 15:00"
+        
+        // 如果没有涨跌幅数据，返回成功但显示 "-"
+        if (!gszzl || gszzl === '' || gszzl === 'null') {
+            request.resolve({
+                success: true,
+                value: '-',
+                date: '',
+                className: '',
+                rawData: data
+            });
+            return;
+        }
+        
+        // 格式化涨跌幅
+        let formattedValue = gszzl;
+        if (!formattedValue.includes('%')) {
+            formattedValue = formattedValue + '%';
+        }
+        
+        // 确保有正负号
+        if (!formattedValue.startsWith('+') && !formattedValue.startsWith('-')) {
+            const numValue = parseFloat(formattedValue);
+            if (!isNaN(numValue)) {
+                formattedValue = (numValue >= 0 ? '+' : '') + formattedValue;
+            }
+        }
+        
+        // 提取日期（月-日格式）
+        let dateStr = '';
+        if (gztime) {
+            const dateMatch = gztime.match(/(\d{4})-(\d{2})-(\d{2})/);
+            if (dateMatch) {
+                // 格式化为 月-日，如 "01-15"
+                dateStr = `${dateMatch[2]}-${dateMatch[3]}`;
+            }
+        }
+        
+        // 确定样式类
+        const numValue = parseFloat(gszzl);
+        const className = !isNaN(numValue) ? 
+            (numValue > 0 ? 'daily-return-positive' : numValue < 0 ? 'daily-return-negative' : '') : '';
+        
+        request.resolve({
+            success: true,
+            value: formattedValue,
+            date: dateStr,
+            className: className,
+            rawData: data
+        });
+    }
+};
+
+// 获取基金估值（优化版，支持美股基金）
+async function fetchFundValuationFromAPI(fundCode) {
+    try {
+        // 优先使用天天基金网的估值接口（返回涨跌幅百分比）
+        const result = await fetchValuationFromTiantianFund(fundCode);
+        return result;
+    } catch (error) {
+        console.error(`获取基金 ${fundCode} 估值失败:`, error);
+        return {
+            success: false,
+            error: error.message,
+            value: 'N/A',
+            date: '',
+            navDate: '',
+            className: 'valuation-error',
+            isEstimated: false
+        };
+    }
+}
+
+// 从东方财富获取基金详细信息和净值
+async function fetchFundDetailFromEastMoney(fundCode) {
+    try {
+        // 东方财富基金净值接口
+        const netValueUrl = `https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&invt=2&fields=f2,f3,f4,f12,f13,f14,f15,f152&secids=0.${fundCode}&ut=fa5fd1943c7b386f172d6893dbfba10b`;
+        
+        const response = await fetch(netValueUrl, {
+            method: 'GET',
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Referer': 'https://fund.eastmoney.com/',
+                'Accept': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP错误: ${response.status}`);
+        }
+
+        const data = await response.json();
+        
+        if (!data.data || !data.data.diff || data.data.diff.length === 0) {
+            // 备用方案
+            return await fetchValuationFromTiantianFund(fundCode);
+        }
+
+        const fundData = data.data.diff[0];
+        
+        // 解析数据
+        const currentPrice = parseFloat(fundData.f2); // 当前净值/价格
+        const changePercent = parseFloat(fundData.f3); // 涨跌幅
+        const preClose = parseFloat(fundData.f4); // 昨日收盘净值
+        const updateTime = fundData.f152; // 更新时间
+        const fundName = fundData.f14; // 基金名称
+        
+        // 判断是否为美股基金（QDII）
+        const isUSFund = await isUSStockFund(fundCode, fundName);
+        
+        let displayValue = 'N/A';
+        let displayDate = '';
+        let isEstimated = false;
+        let className = 'valuation-normal';
+
+        if (!isNaN(currentPrice) && currentPrice > 0) {
+            displayValue = currentPrice.toFixed(4);
+            
+            // 格式化时间
+            if (updateTime) {
+                const timeStr = updateTime.toString();
+                if (timeStr.length >= 8) {
+                    displayDate = `${timeStr.substring(4,6)}-${timeStr.substring(6,8)}`;
+                }
+            }
+            
+            // 对于美股基金，添加特殊标识
+            if (isUSFund) {
+                // 检查是否为实时估值还是昨日净值
+                const now = new Date();
+                const currentHour = now.getHours();
+                
+                // 如果是工作日的交易时间，可能是估值
+                if (currentHour >= 9 && currentHour <= 15) {
+                    isEstimated = true;
+                    className = 'valuation-estimated';
+                } else {
+                    className = 'valuation-official';
+                }
+            }
+            
+            // 根据涨跌幅设置颜色
+            if (!isNaN(changePercent)) {
+                if (changePercent > 0) {
+                    className += ' positive';
+                } else if (changePercent < 0) {
+                    className += ' negative';
+                }
+            }
+        }
+
+        return {
+            success: true,
+            value: displayValue,
+            date: displayDate,
+            navDate: displayDate,
+            className: className,
+            isEstimated: isEstimated,
+            rawData: {
+                currentPrice,
+                changePercent,
+                preClose,
+                updateTime,
+                fundName,
+                isUSFund,
+                source: 'eastmoney'
+            }
+        };
+
+    } catch (error) {
+        console.warn(`东方财富净值接口失败，尝试备用接口: ${error.message}`);
+        return await fetchValuationFromTiantianFund(fundCode);
+    }
+}
+
+// 判断是否为美股基金
+async function isUSStockFund(fundCode, fundName = '') {
+    // 常见的美股/QDII基金关键字
+    const usKeywords = [
+        '纳斯达克', 'NASDAQ', '纳指', '标普', 'S&P', 'SP500',
+        '美国', '美股', 'QDII', '海外', '恒生', '港股',
+        '中概互联', '互联网', '科技ETF', '芯片ETF'
+    ];
+    
+    // 常见的美股基金代码范围
+    const usCodeRanges = [
+        { start: 160000, end: 163000 }, // 南方基金QDII系列
+        { start: 270000, end: 275000 }, // 广发基金QDII系列
+        { start: 513000, end: 515000 }, // 部分美股ETF
+    ];
+    
+    const code = parseInt(fundCode);
+    
+    // 检查代码范围
+    for (const range of usCodeRanges) {
+        if (code >= range.start && code <= range.end) {
+            return true;
+        }
+    }
+    
+    // 检查基金名称
+    if (fundName) {
+        for (const keyword of usKeywords) {
+            if (fundName.includes(keyword)) {
+                return true;
+            }
+        }
+    }
+    
+    return false;
+}
+
+// 备用接口：天天基金网估值
+async function fetchValuationFromTiantianFund(fundCode) {
+    try {
+        const result = await jsonpManager.request(fundCode, 'valuation');
+        
+        // 判断是否为美股基金（仅根据代码）
+        const isUSFund = await isUSStockFund(fundCode, '');
+        
+        return {
+            ...result,
+            rawData: {
+                ...result.rawData,
+                isUSFund,
+                source: 'tiantianfund'
+            }
+        };
+    } catch (error) {
+        throw error;
+    }
+}
+
+// 刷新所有基金的涨跌幅
+async function refreshDailyReturns() {
+    const refreshBtn = document.querySelector('.refresh-btn');
+    const badge = document.getElementById('refresh-badge');
+    
+    // 防止重复点击 - 使用全局锁和按钮状态双重检查
+    if (window.isRefreshingDailyReturns) {
+        console.log('日回报刷新正在进行中，请稍候...');
+        return;
+    }
+    
+    if (refreshBtn.classList.contains('loading')) {
+        console.log('刷新按钮处于加载状态，忽略点击');
+        return;
+    }
+    
+    // 设置全局锁和加载状态
+    window.isRefreshingDailyReturns = true;
+    refreshBtn.classList.add('loading');
+    refreshBtn.disabled = true;
+    
+    showRefreshStatus('正在获取最新涨跌幅数据...', 'info');
+    
+    try {
+        // 获取所有基金代码
+        const fundRows = document.querySelectorAll('#dca-body tr[data-fund-code]');
+        const fundCodes = [];
+        
+        for (const row of fundRows) {
+            const fundCode = row.getAttribute('data-fund-code');
+            const codeElement = row.querySelector('.fund-code');
+            const codeText = codeElement ? codeElement.textContent.trim() : '';
+            
+            // 只处理有效的6位基金代码
+            if (fundCode && /^\d{6}$/.test(fundCode) && codeText !== '-') {
+                fundCodes.push(fundCode);
+            }
+        }
+        
+        if (fundCodes.length === 0) {
+            showRefreshStatus('未找到有效的基金代码', 'error');
+            return;
+        }
+        
+        showRefreshStatus(`正在更新 ${fundCodes.length} 个基金...`, 'info');
+        
+        let successCount = 0;
+        let failCount = 0;
+        
+        // 逐个获取基金数据（避免同时请求过多）
+        for (let i = 0; i < fundCodes.length; i++) {
+            const fundCode = fundCodes[i];
+            
+            try {
+                // 显示进度
+                if (badge) {
+                    badge.textContent = `${i + 1}/${fundCodes.length}`;
+                    badge.style.display = 'inline-block';
+                }
+                
+                // 获取数据
+                const result = await fetchFundDailyReturnFromAPI(fundCode);
+                
+                if (result.success) {
+                    // 更新显示
+                    updateFundDailyReturn(fundCode, {
+                        value: result.value,
+                        date: result.date,
+                        className: result.className,
+                        rawData: result.rawData
+                    });
+                    successCount++;
+                } else {
+                    failCount++;
+                }
+                
+                // 延迟一下，避免请求过快
+                if (i < fundCodes.length - 1) {
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
+                
+            } catch (error) {
+                console.error(`处理基金 ${fundCode} 时出错:`, error);
+                failCount++;
+            }
+        }
+        
+        // 显示结果
+        const message = `更新完成: ${successCount} 成功, ${failCount} 失败`;
+        showRefreshStatus(message, successCount > 0 ? 'success' : 'error');
+        
+        // 更新徽章显示成功数量
+        if (badge) {
+            badge.textContent = successCount.toString();
+            badge.style.backgroundColor = successCount > 0 ? '#10b981' : '#ef4444';
+            setTimeout(() => {
+                badge.style.display = 'none';
+            }, 3000);
+        }
+        
+    } catch (error) {
+        console.error('刷新涨跌幅失败:', error);
+        showRefreshStatus(`刷新失败: ${error.message}`, 'error');
+    } finally {
+        // 恢复按钮状态
+        refreshBtn.classList.remove('loading');
+        refreshBtn.disabled = false;
+    }
+}
+
+// 刷新所有基金的估值
+async function refreshFundValuations() {
+    const refreshBtn = document.querySelector('.refresh-btn');
+    const badge = document.getElementById('refresh-badge');
+    
+    // 防止重复点击
+    if (refreshBtn.classList.contains('loading')) {
+        return;
+    }
+    
+    // 设置加载状态
+    refreshBtn.classList.add('loading');
+    refreshBtn.disabled = true;
+    
+    showRefreshStatus('正在获取最新估值数据...', 'info');
+    
+    try {
+        // 获取所有基金代码
+        const fundRows = document.querySelectorAll('#dca-body tr[data-fund-code]');
+        const fundCodes = [];
+        
+        for (const row of fundRows) {
+            const fundCode = row.getAttribute('data-fund-code');
+            const codeElement = row.querySelector('.fund-code');
+            const codeText = codeElement ? codeElement.textContent.trim() : '';
+            
+            // 只处理有效的6位基金代码
+            if (fundCode && /^\d{6}$/.test(fundCode) && codeText !== '-') {
+                fundCodes.push(fundCode);
+            }
+        }
+        
+        if (fundCodes.length === 0) {
+            showRefreshStatus('未找到有效的基金代码', 'error');
+            return;
+        }
+        
+        showRefreshStatus(`正在更新 ${fundCodes.length} 个基金估值...`, 'info');
+        
+        let successCount = 0;
+        let failCount = 0;
+        
+        // 逐个获取基金估值（避免同时请求过多）
+        for (let i = 0; i < fundCodes.length; i++) {
+            const fundCode = fundCodes[i];
+            
+            try {
+                // 显示进度
+                if (badge) {
+                    badge.textContent = `${i + 1}/${fundCodes.length}`;
+                    badge.style.display = 'inline-block';
+                }
+                
+                // 获取估值数据
+                const result = await fetchFundValuationFromAPI(fundCode);
+                
+                if (result.success) {
+                    // 更新估值显示，格式为：1.23 (01-15)
+                    const displayValue = `${result.value}${result.date ? ` (${result.date})` : ''}`;
+                    updateFundValuation(fundCode, {
+                        value: displayValue,
+                        date: result.date,
+                        className: result.className,
+                        isEstimated: result.isEstimated,
+                        rawData: result.rawData
+                    });
+                    successCount++;
+                } else {
+                    failCount++;
+                }
+                
+                // 延迟一下，避免请求过快
+                if (i < fundCodes.length - 1) {
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
+                
+            } catch (error) {
+                console.error(`处理基金 ${fundCode} 估值时出错:`, error);
+                failCount++;
+            }
+        }
+        
+        // 显示结果
+        if (successCount > 0) {
+            showRefreshStatus(`估值更新完成: ${successCount} 成功, ${failCount} 失败`, 'success');
+        } else {
+            showRefreshStatus(`估值更新失败: ${failCount} 个基金获取失败`, 'error');
+        }
+        
+        // 更新徽章显示
+        if (badge) {
+            badge.textContent = successCount > 0 ? '✓' : '✗';
+            badge.style.backgroundColor = successCount > 0 ? '#10b981' : '#ef4444';
+            setTimeout(() => {
+                badge.style.display = 'none';
+            }, 3000);
+        }
+        
+    } catch (error) {
+        console.error('刷新估值失败:', error);
+        showRefreshStatus(`刷新失败: ${error.message}`, 'error');
+    } finally {
+        // 恢复按钮状态并释放全局锁
+        refreshBtn.classList.remove('loading');
+        refreshBtn.disabled = false;
+        window.isRefreshingDailyReturns = false;
+        console.log('日回报刷新完成，锁已释放');
+    }
+}
+
+// 页面加载时自动刷新估值
+async function refreshValuationsOnLoad() {
+    // 等待页面加载完成
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // 检查是否有基金数据
+    const fundRows = document.querySelectorAll('#dca-body tr[data-fund-code]');
+    if (fundRows.length > 0) {
+        console.log('📈 页面加载完成，开始获取所有基金估值...');
+        showRefreshStatus('正在获取基金估值...', 'info');
+        
+        // 获取所有基金的估值
+        const allFunds = Array.from(fundRows).map(row => 
+            row.getAttribute('data-fund-code')
+        ).filter(code => code && /^\d{6}$/.test(code));
+        
+        if (allFunds.length > 0) {
+            console.log(`📊 需要查询 ${allFunds.length} 个基金的估值`);
+            
+            let successCount = 0;
+            let failCount = 0;
+            
+            for (const fundCode of allFunds) {
+                try {
+                    const result = await fetchFundValuationFromAPI(fundCode);
+                    if (result.success) {
+                        const displayValue = `${result.value}${result.date ? ` (${result.date})` : ''}`;
+                        updateFundValuation(fundCode, {
+                            value: displayValue,
+                            date: result.date,
+                            className: result.className,
+                            isEstimated: result.isEstimated,
+                            rawData: result.rawData
+                        });
+                        successCount++;
+                    } else {
+                        console.warn(`基金 ${fundCode} 估值获取失败:`, result.error);
+                        failCount++;
+                    }
+                    // 稍微延迟，避免请求过快
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                } catch (error) {
+                    console.error(`加载时获取基金 ${fundCode} 估值失败:`, error);
+                    failCount++;
+                }
+            }
+            
+            showRefreshStatus(`基金估值加载完成 (成功: ${successCount}, 失败: ${failCount})`, 'success');
+            console.log(`✅ 估值加载统计: 成功 ${successCount} 个, 失败 ${failCount} 个`);
+        }
+    }
+}
+
+
+
+// 朋友专场相关函数
+
+// 显示朋友专场模态框
+function showFriendsZone() {
+    try {
+        console.log('🔄 开始加载朋友专场...');
+        
+        // 创建朋友专场模态框
+        createFriendsZoneModal();
+        
+        // 加载基金数据
+        loadFriendsZoneData();
+        
+    } catch (error) {
+        console.error('显示朋友专场失败:', error);
+        showFriendsZoneError(`显示朋友专场时出错: ${error.message}`);
+    }
+}
+
+// 创建朋友专场模态框
+function createFriendsZoneModal() {
+    // 创建模态框
+    const modal = document.createElement('div');
+    modal.className = 'friends-zone-modal';
+    modal.id = 'friends-zone-modal';
+    
+    modal.innerHTML = `
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>👥 朋友专场</h3>
+                <span class="close-btn" onclick="closeFriendsZoneModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="table-container">
+                    <table class="friends-zone-table">
+                        <thead>
+                            <tr>
+                                <th>基金代码</th>
+                                <th>基金名称</th>
+                                <th>参考日估值</th>
+                            </tr>
+                        </thead>
+                        <tbody id="friends-zone-tbody">
+                            <tr class="loading-row">
+                                <td colspan="3">
+                                    <div class="loading-content">
+                                        <div class="loading-spinner"></div>
+                                        <span>正在加载朋友专场数据...</span>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // 点击背景关闭
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            closeFriendsZoneModal();
+        }
+    });
+}
+
+// 加载朋友专场数据
+async function loadFriendsZoneData() {
+    const tbody = document.getElementById('friends-zone-tbody');
+    if (!tbody) return;
+    
+    console.log('📊 开始获取朋友专场基金数据...');
+    
+    const friendsFunds = [];
+    let successCount = 0;
+    let failCount = 0;
+    
+    // 为每个基金代码获取数据
+    for (const fundCode of FRIENDS_ZONE_FUNDS) {
+        try {
+            console.log(`🔄 正在获取基金 ${fundCode} 数据...`);
+            
+            // 获取基金估值数据
+            const result = await jsonpManager.request(fundCode, 'valuation');
+            
+            if (result.success) {
+                const fundData = result.rawData;
+                friendsFunds.push({
+                    code: fundCode,
+                    name: fundData.name || '基金名称获取中...',
+                    valuation: result.value || '-',
+                    className: result.className || '',
+                    date: result.date || '',
+                    rawData: fundData
+                });
+                successCount++;
+                console.log(`✅ ${fundCode} 数据获取成功`);
+            } else {
+                friendsFunds.push({
+                    code: fundCode,
+                    name: '数据获取失败',
+                    valuation: '-',
+                    className: 'valuation-normal',
+                    date: '',
+                    rawData: null
+                });
+                failCount++;
+                console.log(`❌ ${fundCode} 数据获取失败`);
+            }
+            
+            // 稍微延迟，避免请求过快
+            await new Promise(resolve => setTimeout(resolve, 200));
+            
+        } catch (error) {
+            console.error(`获取基金 ${fundCode} 数据失败:`, error);
+            friendsFunds.push({
+                code: fundCode,
+                name: '网络错误',
+                valuation: '-',
+                className: 'valuation-normal',
+                date: '',
+                rawData: null
+            });
+            failCount++;
+        }
+    }
+    
+    // 渲染朋友专场表格
+    renderFriendsZoneTable(friendsFunds);
+    
+    console.log(`📊 朋友专场数据加载完成 (成功: ${successCount}, 失败: ${failCount})`);
+}
+
+// 渲染朋友专场表格
+function renderFriendsZoneTable(friendsFunds) {
+    const tbody = document.getElementById('friends-zone-tbody');
+    if (!tbody || !friendsFunds || friendsFunds.length === 0) {
+        tbody.innerHTML = '<tr class="empty-state"><td colspan="3">暂无朋友专场数据</td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = friendsFunds.map(fund => {
+        return `
+            <tr data-fund-code="${fund.code}">
+                <td><code class="fund-code">${fund.code}</code></td>
+                <td>${fund.name}</td>
+                <td class="valuation-cell">
+                    <div class="valuation-container">
+                        <span class="valuation-value ${fund.className}">${fund.valuation}</span>
+                        ${fund.date ? `<span class="valuation-date">${fund.date}</span>` : ''}
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// 关闭朋友专场模态框
+function closeFriendsZoneModal() {
+    const modal = document.getElementById('friends-zone-modal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+// 显示朋友专场错误提示
+function showFriendsZoneError(message) {
+    const errorModal = document.createElement('div');
+    errorModal.className = 'friends-zone-modal';
+    errorModal.innerHTML = `
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <h3>⚠️ 朋友专场加载失败</h3>
+                <span class="close-btn" onclick="this.parentElement.parentElement.remove()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div style="text-align: center; padding: 20px;">
+                    <div style="font-size: 3rem; margin-bottom: 16px;">👥</div>
+                    <p style="color: #2c3e50; margin-bottom: 16px;">${message}</p>
+                    <div style="display: flex; gap: 12px; justify-content: center; margin-top: 24px;">
+                        <button class="friends-btn" onclick="showFriendsZone(); this.parentElement.parentElement.parentElement.parentElement.remove()">
+                            🔄 重新加载
+                        </button>
+                        <button class="chart-btn" onclick="this.parentElement.parentElement.parentElement.parentElement.remove()">
+                            关闭
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(errorModal);
+    
+    // 点击背景关闭
+    errorModal.addEventListener('click', function(e) {
+        if (e.target === errorModal) {
+            errorModal.remove();
+        }
+    });
+}
+
 // 页面加载完成后执行
 document.addEventListener('DOMContentLoaded', () => {
-    fetchData();
+    console.log('🚀 养鸡场基金系统开始加载...');
+    console.log('📊 配置信息:');
+    console.log('  - API URL:', GOOGLE_SHEET_API_URL);
+    console.log('  - 缓存时间:', CACHE_DURATION / 1000, '秒');
+    console.log('  - 当前时间:', new Date().toLocaleString());
+    
+    // 直接加载数据
+    fetchData().finally(() => {
+        // 无论数据加载成功与否，都尝试获取估值
+        setTimeout(() => {
+            refreshValuationsOnLoad();
+        }, 1000);
+    });
+    
+
 });
+
+
