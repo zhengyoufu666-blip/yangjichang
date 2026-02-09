@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>养鸡场 - 基金记录</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🐔 养鸡场</h1>
+            <p class="subtitle">基金每日记录 · 手动买卖 / 日定投</p>
+        </header>
+
+        <main>
+            <!-- 风险说明（显眼但紧凑） -->
+            <div class="disclaimer compact" id="disclaimer">
+                <div class="disclaimer-header" onclick="toggleDisclaimer()">
+                    <span>⚠️ 风险提示 · 点击展开</span>
+                    <span class="toggle-icon">▼</span>
+                </div>
+                <div class="disclaimer-content" id="disclaimer-content"></div>
+            </div>
+
+            <!-- 标签切换 -->
+            <div class="tabs">
+                <button class="tab-btn" data-tab="dca" onclick="switchTab('dca')">
+                    📊 当前持仓
+                </button>
+                <button class="tab-btn active" data-tab="manual" onclick="switchTab('manual')">
+                    💰 主动操作
+                </button>
+            </div>
+
+            <!-- 当前持仓表格 -->
+            <div class="tab-content" id="tab-dca">
+                <div class="table-header">
+                    <h3>当前持仓</h3>
+                    <div class="table-actions">
+                        <button class="refresh-btn" onclick="refreshDailyReturns()" title="获取最新涨跌幅">
+                            🔄 刷新涨跌幅
+                            <span class="refresh-badge" id="refresh-badge" style="display: none;"></span>
+                        </button>
+                        <button class="profit-btn" onclick="showProfitRecord()">📈 收益记录</button>
+                        <button class="chart-btn" onclick="showPieChart()">📊 持仓饼图</button>
+                        <button class="friends-btn" onclick="showFriendsZone()">👥 朋友专场</button>
+                    </div>
+                </div>
+                <div class="table-container">
+                    <table id="dca-table">
+                        <thead>
+                            <tr>
+                                <th>分类</th>
+                                <th>基金代码</th>
+                                <th>基金名称</th>
+                                <th class="sortable" data-column="dailyReturn" onclick="sortTable('dailyReturn')">近6月回报 <span class="sort-icon">↕</span></th>
+                                <th>参考日估值</th>
+                                <th class="sortable" data-column="percentage" onclick="sortTable('percentage')">持仓占比 <span class="sort-icon">↕</span></th>
+                                <th>操作</th>
+                                <th class="sortable" data-column="cumulative" onclick="sortTable('cumulative')">累计收益 <span class="sort-icon">↕</span></th>
+                                <th>日限购</th>
+                                <th>备注</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dca-body">
+                            <tr class="loading-row"><td colspan="10">
+                                <div class="loading-content">
+                                    <div class="loading-spinner"></div>
+                                    <span>正在加载数据...</span>
+                                </div>
+                            </td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 主动操作表格 -->
+            <div class="tab-content active" id="tab-manual">
+                <div class="table-header">
+                    <h3>主动操作</h3>
+                </div>
+                <div class="table-container">
+                    <table id="manual-table">
+                        <thead>
+                            <tr>
+                                <th>操作时间</th>
+                                <th>每日定投</th>
+                                <th>买入操作</th>
+                                <th>卖出操作</th>
+                                <th>当日留言</th>
+                            </tr>
+                        </thead>
+                        <tbody id="manual-body">
+                            <tr class="loading-row"><td colspan="5">
+                                <div class="loading-content">
+                                    <div class="loading-spinner"></div>
+                                    <span>正在加载数据...</span>
+                                </div>
+                            </td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <p>© 2026 养鸡场基金记录系统</p>
+        </footer>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
