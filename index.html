@@ -4,10 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>养鸡场 - 基金记录</title>
-    <!-- Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -42,13 +38,8 @@
                 <div class="table-header">
                     <h3>当前持仓</h3>
                     <div class="table-actions">
-                        <button class="refresh-btn" onclick="refreshDailyReturns()" title="获取最新涨跌幅">
-                            🔄 刷新涨跌幅
-                            <span class="refresh-badge" id="refresh-badge" style="display: none;"></span>
-                        </button>
                         <button class="profit-btn" onclick="showProfitRecord()">📈 收益记录</button>
                         <button class="chart-btn" onclick="showPieChart()">📊 持仓饼图</button>
-                        <button class="friends-btn" onclick="showFriendsZone()">👥 朋友专场</button>
                     </div>
                 </div>
                 <div class="table-container">
@@ -58,8 +49,7 @@
                                 <th>分类</th>
                                 <th>基金代码</th>
                                 <th>基金名称</th>
-                                <th class="sortable" data-column="dailyReturn" onclick="sortTable('dailyReturn')">近6月回报 <span class="sort-icon">↕</span></th>
-                                <th>参考日估值</th>
+                                <th class="sortable" data-column="dailyReturn" onclick="sortTable('dailyReturn')">参考日回报/% <span class="sort-icon">↕</span></th>
                                 <th class="sortable" data-column="percentage" onclick="sortTable('percentage')">持仓占比 <span class="sort-icon">↕</span></th>
                                 <th>操作</th>
                                 <th class="sortable" data-column="cumulative" onclick="sortTable('cumulative')">累计收益 <span class="sort-icon">↕</span></th>
@@ -68,7 +58,7 @@
                             </tr>
                         </thead>
                         <tbody id="dca-body">
-                            <tr class="loading-row"><td colspan="10">
+                            <tr class="loading-row"><td colspan="9">
                                 <div class="loading-content">
                                     <div class="loading-spinner"></div>
                                     <span>正在加载数据...</span>
