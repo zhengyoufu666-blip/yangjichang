@@ -1391,26 +1391,24 @@ async function fetchData(retryCount = 0) {
         // 确保隐藏加载状态
         hideLoadingState();
         
-        // 检查是否有缓存数据可以显示
-        if (cachedData && (Date.now() - lastFetchTime) < CACHE_DURATION * 24) { // 24倍缓存时间，即2小时内的缓存
-            console.log('使用缓存数据作为降级方案');
-            renderDCATable(cachedData.dca);
-            renderManualTable(cachedData.active);
-            renderDisclaimer(cachedData.disclaimer);
-            showErrorState(`数据加载失败，显示缓存数据 (${error.message})`);
-            return;
-        }
+        // 立即使用本地数据（快速降级）
+        console.log('API请求失败，立即使用本地数据');
+        useLocalData();
         
-        // 重试逻辑
+        // 显示友好的错误提示（不阻塞用户）
+        showQuickErrorState(`网络连接失败，已显示本地备份数据<br><small>${error.message}</small>`);
+        
+        // 在后台静默重试（不干扰用户）
         if (retryCount < maxRetries) {
-            console.log(`重试中... (${retryCount + 1}/${maxRetries})`);
-            setTimeout(() => fetchData(retryCount + 1), 2000 * (retryCount + 1));
-            showErrorState(`加载失败，正在重试... (${retryCount + 1}/${maxRetries})`);
-        } else {
-            // 所有重试都失败，使用本地数据
-            console.log('所有重试失败，使用本地备选数据');
-            useLocalData();
-            showErrorState(`网络连接失败，已显示本地备份数据<br><small>${error.message}</small>`);
+            console.log(`后台静默重试中... (${retryCount + 1}/${maxRetries})`);
+            setTimeout(() => {
+                fetchData(retryCount + 1).then(() => {
+                    // 重试成功，刷新页面提示
+                    if (retryCount + 1 < maxRetries) {
+                        showSuccessState('网络恢复，数据已更新！');
+                    }
+                });
+            }, 3000); // 3秒后重试
         }
     }
 }
@@ -1631,6 +1629,66 @@ function showErrorState(message) {
             </td></tr>
         `;
     }
+}
+
+// 显示快速错误状态（不替换表格）
+function showQuickErrorState(message) {
+    // 创建或更新快速错误提示
+    let quickError = document.getElementById('quick-error-notice');
+    
+    if (!quickError) {
+        quickError = document.createElement('div');
+        quickError.id = 'quick-error-notice';
+        quickError.className = 'quick-error-notice';
+        
+        // 添加到页面顶部
+        const container = document.querySelector('.container');
+        if (container) {
+            container.insertBefore(quickError, container.firstChild);
+        }
+    }
+    
+    quickError.innerHTML = `
+        <div class="quick-error-content">
+            <span class="quick-error-icon">⚠️</span>
+            <span class="quick-error-text">${message}</span>
+            <button class="quick-error-close-btn" onclick="this.parentElement.parentElement.remove()">×</button>
+        </div>
+    `;
+    
+    // 5秒后自动消失
+    setTimeout(() => {
+        if (quickError && quickError.parentNode) {
+            quickError.remove();
+        }
+    }, 5000);
+}
+
+// 显示成功状态
+function showSuccessState(message) {
+    // 创建成功提示
+    const successNotice = document.createElement('div');
+    successNotice.className = 'success-notice';
+    successNotice.innerHTML = `
+        <div class="success-content">
+            <span class="success-icon">✅</span>
+            <span class="success-text">${message}</span>
+            <button class="success-close-btn" onclick="this.parentElement.parentElement.remove()">×</button>
+        </div>
+    `;
+    
+    // 添加到页面顶部
+    const container = document.querySelector('.container');
+    if (container) {
+        container.insertBefore(successNotice, container.firstChild);
+    }
+    
+    // 3秒后自动消失
+    setTimeout(() => {
+        if (successNotice && successNotice.parentNode) {
+            successNotice.remove();
+        }
+    }, 3000);
 }
 
 // 隐藏加载状态

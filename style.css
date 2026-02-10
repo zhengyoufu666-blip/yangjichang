@@ -3113,3 +3113,120 @@ footer p {
         flex-grow: 0;
     }
 }
+
+/* 快速错误提示样式 */
+.quick-error-notice {
+    background: linear-gradient(135deg, #f59e0b, #fbbf24);
+    color: #7c2d12;
+    padding: 10px 14px;
+    border-radius: 6px;
+    margin-bottom: 15px;
+    box-shadow: 0 3px 10px rgba(245, 158, 11, 0.3);
+    animation: slideDown 0.3s ease-out;
+    border-left: 3px solid #d97706;
+    font-size: 0.9rem;
+}
+
+.quick-error-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.quick-error-icon {
+    font-size: 1rem;
+    flex-shrink: 0;
+}
+
+.quick-error-text {
+    flex-grow: 1;
+    font-weight: 500;
+    font-size: 0.85rem;
+}
+
+.quick-error-close-btn {
+    background: none;
+    color: #7c2d12;
+    border: none;
+    font-size: 1.3rem;
+    cursor: pointer;
+    padding: 0 4px;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+    flex-shrink: 0;
+    line-height: 1;
+}
+
+.quick-error-close-btn:hover {
+    opacity: 1;
+}
+
+/* 成功提示样式 */
+.success-notice {
+    background: linear-gradient(135deg, #10b981, #34d399);
+    color: white;
+    padding: 10px 14px;
+    border-radius: 6px;
+    margin-bottom: 15px;
+    box-shadow: 0 3px 10px rgba(16, 185, 129, 0.3);
+    animation: slideDown 0.3s ease-out;
+    border-left: 3px solid #059669;
+    font-size: 0.9rem;
+}
+
+.success-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.success-icon {
+    font-size: 1rem;
+    flex-shrink: 0;
+}
+
+.success-text {
+    flex-grow: 1;
+    font-weight: 500;
+    font-size: 0.85rem;
+}
+
+.success-close-btn {
+    background: none;
+    color: white;
+    border: none;
+    font-size: 1.3rem;
+    cursor: pointer;
+    padding: 0 4px;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+    flex-shrink: 0;
+    line-height: 1;
+}
+
+.success-close-btn:hover {
+    opacity: 1;
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+    .quick-error-content,
+    .success-content {
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+    
+    .quick-error-text,
+    .success-text {
+        width: 100%;
+        margin-bottom: 6px;
+        font-size: 0.8rem;
+    }
+    
+    .quick-error-close-btn,
+    .success-close-btn {
+        flex-grow: 0;
+    }
+}
