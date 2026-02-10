@@ -89,3 +89,14 @@ TEST_REPORT.md
 _redirects
 *.backup.js
 *.old.js
+
+# 养鸡场特定忽略
+local-data-export.js          # 导出的本地数据文件（可能包含敏感信息）
+local-data-backup-*.js        # 本地数据备份文件
+*.local-data.js               # 其他本地数据变体
+personal-config.js            # 个人配置文件（可能包含API密钥）
+secrets.json                  # 密钥文件
+user-data/                    # 用户数据目录
+exports/                      # 导出文件目录
+temp-*.html                   # 临时HTML文件
+test-*.html                   # 测试HTML文件（除了test-complete-export.html）

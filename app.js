@@ -475,9 +475,8 @@ function generateDCATableRow(row) {
     const bgClass = getOperationBackgroundClass(row['操作'] || row['操作']);
     // 累计收益：只使用累计收益列数据，如果没有则显示"-"
     const cumulativeAmount = row['累计收益'];
-    // 持仓占比：使用计算出的占比，如果没有则显示"-"
-    const percentage = row._percentage !== undefined ? row._percentage : 
-                      (row['持仓占比'] ? parseFloat(row['持仓占比']) : null);
+    // 持仓占比：使用计算出的占比
+    const percentage = row._percentage !== undefined ? row._percentage : null;
     // 近6月回报：使用近6月回报数据（支持旧字段名兼容）
     const dailyReturnRaw = row['近6月回报'] || row['参考日回报'] || row['参考日回报/%'] || row['参考日回报%'] || null;
     // 确保 dailyReturn 是字符串，如果是数字则转换为字符串
@@ -707,9 +706,8 @@ function renderDCATableWithSort(data) {
         const bgClass = getOperationBackgroundClass(row['操作'] || row['操作']);
         // 累计收益：只使用累计收益列数据，如果没有则显示"-"
         const cumulativeAmount = row['累计收益'];
-        // 持仓占比：使用计算出的占比，如果没有则显示"-"
-        const percentage = row._percentage !== undefined ? row._percentage : 
-                          (row['持仓占比'] ? parseFloat(row['持仓占比']) : null);
+        // 持仓占比：使用计算出的占比
+        const percentage = row._percentage !== undefined ? row._percentage : null;
         
         // 近6月回报：使用近6月回报数据（支持旧字段名兼容）
         const dailyReturnRaw = row['近6月回报'] || row['参考日回报'] || row['参考日回报/%'] || row['参考日回报%'] || null;
@@ -822,13 +820,9 @@ function calculateOperationDistribution(data) {
         // 获取持仓占比
         let percentage = 0;
         
-        // 先尝试使用计算出的占比
+        // 使用计算出的占比
         if (row._percentage !== undefined) {
             percentage = row._percentage;
-        } 
-        // 如果没有计算出的占比，尝试使用表格中的持仓占比列
-        else if (row['持仓占比']) {
-            percentage = parseFloat(row['持仓占比']) || 0;
         }
         
         if (operation && percentage > 0) {
@@ -900,16 +894,10 @@ function calculateFundAllocation(data) {
         // 计算该基金的占比
         let percentage = 0;
         
-        // 优先使用表格中的持仓占比列
-        if (row['持仓占比']) {
-            percentage = parseFloat(row['持仓占比']) || 0;
-        }
-        // 如果没有持仓占比列，使用金额计算占比
-        else {
-            const amountStr = row['金额'] || '0';
-            const amount = parseFloat(amountStr.toString().replace(/[^\d.-]/g, '')) || 0;
-            percentage = totalAmount > 0 ? (amount / totalAmount * 100) : 0;
-        }
+        // 使用金额计算占比
+        const amountStr = row['金额'] || '0';
+        const amount = parseFloat(amountStr.toString().replace(/[^\d.-]/g, '')) || 0;
+        percentage = totalAmount > 0 ? (amount / totalAmount * 100) : 0;
         
         if (percentage > 0) {
             if (fundMap.has(fundName)) {
@@ -1419,8 +1407,57 @@ async function fetchData(retryCount = 0) {
             setTimeout(() => fetchData(retryCount + 1), 2000 * (retryCount + 1));
             showErrorState(`加载失败，正在重试... (${retryCount + 1}/${maxRetries})`);
         } else {
-            showErrorState(`加载失败: ${error.message}<br><small>请检查网络连接或稍后重试</small>`);
+            // 所有重试都失败，使用本地数据
+            console.log('所有重试失败，使用本地备选数据');
+            useLocalData();
+            showErrorState(`网络连接失败，已显示本地备份数据<br><small>${error.message}</small>`);
         }
+    }
+}
+
+// 使用本地数据
+function useLocalData() {
+    console.log('使用本地备选数据');
+    
+    // 更新缓存
+    cachedData = {
+        dca: LOCAL_DCA_DATA,
+        active: LOCAL_ACTIVE_DATA,
+        disclaimer: LOCAL_DISCLAIMER,
+        dailyNote: "当前显示本地备份数据，请检查网络连接"
+    };
+    lastFetchTime = Date.now();
+    
+    // 渲染本地数据
+    if (sortState.direction && (sortState.column === 'percentage' || sortState.column === 'cumulative' || sortState.column === 'dailyReturn')) {
+        renderDCATableWithSort(LOCAL_DCA_DATA);
+    } else {
+        renderDCATable(LOCAL_DCA_DATA);
+    }
+    renderManualTable(LOCAL_ACTIVE_DATA);
+    renderDisclaimer(LOCAL_DISCLAIMER);
+    
+    // 显示本地数据提示
+    showLocalDataNotice();
+}
+
+// 显示本地数据提示
+function showLocalDataNotice() {
+    const notice = document.createElement('div');
+    notice.className = 'local-data-notice';
+    notice.innerHTML = `
+        <div class="notice-content">
+            <span class="notice-icon">📡</span>
+            <span class="notice-text">当前显示本地备份数据（网络连接失败）</span>
+            <button class="notice-retry-btn" onclick="fetchData()">重试连接</button>
+            <button class="notice-close-btn" onclick="this.parentElement.parentElement.remove()">×</button>
+        </div>
+    `;
+    
+    // 添加到页面顶部
+    const container = document.querySelector('.container');
+    if (container) {
+        container.insertBefore(notice, container.firstChild);
     }
 }
 
@@ -3118,6 +3155,132 @@ function showFriendsZoneError(message) {
     });
 }
 
+// 导出当前数据到本地文件
+function exportToLocalFile() {
+    if (!cachedData) {
+        alert('请先加载数据！');
+        return;
+    }
+    
+    try {
+        // 生成JavaScript文件内容（按照完整表头结构）
+        const fileContent = `/**
+ * 本地备份数据文件
+ * 从Google Sheets导出的真实数据
+ * 导出时间: ${new Date().toLocaleString('zh-CN')}
+ * 表头结构：
+ * - 定投基金: 分类, 基金代码, 基金名称, 近6月回报, 操作, 备注, 金额, 累计收益, 基金限购, 当日估值
+ * - 主动操作: 操作时间, 每日定投, 买入操作, 卖出操作, 当日留言
+ * - 说明: 风险说明
+ */
+
+// 本地备选基金数据（当前持仓）- 完整表头结构
+const LOCAL_DCA_DATA = ${JSON.stringify(cachedData.dca, null, 2)};
+
+// 本地主动操作数据 - 完整表头结构
+const LOCAL_ACTIVE_DATA = ${JSON.stringify(cachedData.active, null, 2)};
+
+// 本地风险说明
+const LOCAL_DISCLAIMER = ${JSON.stringify(cachedData.disclaimer || '')};
+
+// 导出数据（如果使用模块化）
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+        LOCAL_DCA_DATA,
+        LOCAL_ACTIVE_DATA,
+        LOCAL_DISCLAIMER
+    };
+}`;
+        
+        // 创建下载链接
+        const blob = new Blob([fileContent], { type: 'application/javascript' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'local-data-export.js';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        console.log('✅ 数据导出成功！');
+        alert(`数据导出成功！\n包含 ${cachedData.dca.length} 条持仓记录和 ${cachedData.active.length} 条操作记录\n使用完整表头结构导出`);
+        
+    } catch (error) {
+        console.error('导出数据失败:', error);
+        alert('导出数据失败: ' + error.message);
+    }
+}
+
+// 添加导出按钮到页面
+function addExportButton() {
+    // 检查是否已存在导出按钮
+    if (document.getElementById('export-data-btn')) {
+        return;
+    }
+    
+    // 创建导出按钮
+    const exportBtn = document.createElement('button');
+    exportBtn.id = 'export-data-btn';
+    exportBtn.className = 'export-btn';
+    exportBtn.innerHTML = '💾 导出本地数据';
+    exportBtn.title = '将当前数据导出到本地文件';
+    exportBtn.onclick = exportToLocalFile;
+    
+    // 添加到页面
+    const tableActions = document.querySelector('.table-actions');
+    if (tableActions) {
+        tableActions.appendChild(exportBtn);
+    } else {
+        // 如果找不到.table-actions，添加到页面其他位置
+        const header = document.querySelector('header');
+        if (header) {
+            const btnContainer = document.createElement('div');
+            btnContainer.style.marginTop = '10px';
+            btnContainer.appendChild(exportBtn);
+            header.appendChild(btnContainer);
+        }
+    }
+    
+    // 添加CSS样式
+    const style = document.createElement('style');
+    style.textContent = `
+        .export-btn {
+            background: linear-gradient(135deg, #10b981, #34d399);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-left: 10px;
+        }
+        
+        .export-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(16, 185, 129, 0.4);
+        }
+        
+        .export-btn:active {
+            transform: translateY(0);
+        }
+        
+        @media (max-width: 768px) {
+            .export-btn {
+                padding: 8px 16px;
+                font-size: 0.85rem;
+                margin-left: 5px;
+            }
+        }
+    `;
+    document.head.appendChild(style);
+}
+
 // 页面加载完成后执行
 document.addEventListener('DOMContentLoaded', () => {
     console.log('🚀 养鸡场基金系统开始加载...');
@@ -3125,6 +3288,9 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('  - API URL:', GOOGLE_SHEET_API_URL);
     console.log('  - 缓存时间:', CACHE_DURATION / 1000, '秒');
     console.log('  - 当前时间:', new Date().toLocaleString());
+    
+    // 添加导出按钮
+    addExportButton();
     
     // 直接加载数据
     fetchData().finally(() => {

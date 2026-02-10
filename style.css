@@ -3017,3 +3017,99 @@ footer p {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
+
+/* 本地数据提示样式 */
+.local-data-notice {
+    background: linear-gradient(135deg, #ff6b6b, #ff8e53);
+    color: white;
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
+    animation: slideDown 0.3s ease-out;
+    border-left: 4px solid #dc2626;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.notice-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.notice-icon {
+    font-size: 1.2rem;
+    flex-shrink: 0;
+}
+
+.notice-text {
+    flex-grow: 1;
+    font-weight: 500;
+    font-size: 0.95rem;
+}
+
+.notice-retry-btn {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+
+.notice-retry-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: translateY(-1px);
+}
+
+.notice-close-btn {
+    background: none;
+    color: white;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0 4px;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+    flex-shrink: 0;
+    line-height: 1;
+}
+
+.notice-close-btn:hover {
+    opacity: 1;
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+    .notice-content {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    
+    .notice-text {
+        width: 100%;
+        margin-bottom: 8px;
+    }
+    
+    .notice-retry-btn {
+        flex-grow: 1;
+    }
+    
+    .notice-close-btn {
+        flex-grow: 0;
+    }
+}
