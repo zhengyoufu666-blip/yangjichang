@@ -29,16 +29,16 @@
 
             <!-- 标签切换 -->
             <div class="tabs">
-                <button class="tab-btn" data-tab="dca" onclick="switchTab('dca')">
+                <button class="tab-btn active" data-tab="dca" onclick="switchTab('dca')">
                     📊 当前持仓
                 </button>
-                <button class="tab-btn active" data-tab="manual" onclick="switchTab('manual')">
+                <button class="tab-btn" data-tab="manual" onclick="switchTab('manual')">
                     💰 主动操作
                 </button>
             </div>
 
             <!-- 当前持仓表格 -->
-            <div class="tab-content" id="tab-dca">
+            <div class="tab-content active" id="tab-dca">
                 <div class="table-header">
                     <h3>当前持仓</h3>
                     <div class="table-actions">
@@ -80,7 +80,7 @@
             </div>
 
             <!-- 主动操作表格 -->
-            <div class="tab-content active" id="tab-manual">
+            <div class="tab-content" id="tab-manual">
                 <div class="table-header">
                     <h3>主动操作</h3>
                 </div>
