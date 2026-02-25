@@ -508,7 +508,7 @@ function generateDCATableRow(row) {
         <td>${category}</td>
         <td><code class="fund-code">${row['基金代码'] || row['基金代码'] || '-'}</code></td>
         <td>${row['基金名称'] || row['基金名称'] || '-'}</td>
-        <td class="daily-return-cell">
+        <td class="daily-return-cell hidden-column">
             <div class="daily-return-container">
                 <span class="daily-return-value ${dailyReturnClass}">${dailyReturnValue}</span>
                 ${dailyReturnDate ? `<span class="daily-return-date">${dailyReturnDate}</span>` : ''}
@@ -526,8 +526,8 @@ function generateDCATableRow(row) {
                 ${row['操作'] || row['操作'] || '-'}
             </span>
         </td>
-        <td>${cumulativeAmount ? formatCurrency(cumulativeAmount) : '-'}</td>
-        <td>${row['基金限购'] || row['基金限购'] || '-'}</td>
+        <td class="hidden-column">${cumulativeAmount ? formatCurrency(cumulativeAmount) : '-'}</td>
+        <td class="hidden-column">${row['基金限购'] || row['基金限购'] || '-'}</td>
         <td>${formatTextWithLineBreaks(row['备注'] || row['备注'])}</td>
     </tr>
 `;
