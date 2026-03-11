@@ -1335,6 +1335,7 @@ async function fetchData(retryCount = 0) {
         const dca = jsonData['定投基金'] ? jsonData['定投基金'].rows : [];
         const manual = jsonData['操作记录'] ? jsonData['操作记录'].rows : [];
         const active = jsonData['主动操作'] ? jsonData['主动操作'].rows : [];
+        const profitRecord = jsonData['收益记录'] ? jsonData['收益记录'].rows : [];
         
         let disclaimer = '';
         let dailyNote = '';
@@ -1354,7 +1355,7 @@ async function fetchData(retryCount = 0) {
         });
 
         // 更新缓存
-        cachedData = { dca, active, disclaimer, dailyNote };
+        cachedData = { dca, active, disclaimer, dailyNote, profitRecord };
         lastFetchTime = now;
 
         // 调试：检查数据结构
@@ -1716,32 +1717,22 @@ function hideLoadingState() {
 // 收益记录功能
 // ============================================
 
-// 生成收益记录数据（完全匹配用户提供的表格数据）
-function generateProfitData() {
-    // 完全按照用户提供的表格数据
-    return [
-        { time: '2025', profitRanking: 'https://s3.bmp.ovh/2026/02/03/f8JXr345.png', totalProfit: 18000 },
-        { time: '202601', profitRanking: 'https://s3.bmp.ovh/2026/02/02/kKXYJUHw.png', totalProfit: 5844 },
-        { time: '202602', profitRanking: '-', totalProfit: '-' },
-        { time: '202603', profitRanking: '-', totalProfit: '-' },
-        { time: '202604', profitRanking: '-', totalProfit: '-' },
-        { time: '202605', profitRanking: '-', totalProfit: '-' },
-        { time: '202606', profitRanking: '-', totalProfit: '-' },
-        { time: '202607', profitRanking: '-', totalProfit: '-' },
-        { time: '202608', profitRanking: '-', totalProfit: '-' },
-        { time: '202609', profitRanking: '-', totalProfit: '-' },
-        { time: '202610', profitRanking: '-', totalProfit: '-' },
-        { time: '202611', profitRanking: '-', totalProfit: '-' },
-        { time: '202612', profitRanking: '-', totalProfit: '-' }
-    ];
-}
-
-// 收益记录数据（完全匹配用户提供的表格数据）
-const profitRecordData = generateProfitData();
-
 // 显示收益记录模态框
 function showProfitRecord() {
     try {
+        // 从缓存获取收益记录数据
+        if (!cachedData || !cachedData.profitRecord || cachedData.profitRecord.length === 0) {
+            showProfitRecordError('暂无收益记录数据');
+            return;
+        }
+        
+        // 映射字段名：时间->time, 收益排序->profitRanking, 总收益->totalProfit
+        const profitRecordData = cachedData.profitRecord.map(row => ({
+            time: row['时间'] || row['time'] || '-',
+            profitRanking: row['收益排序'] || row['profitRanking'] || '-',
+            totalProfit: row['总收益'] !== undefined ? row['总收益'] : (row['totalProfit'] || '-')
+        }));
+        
         if (!profitRecordData || profitRecordData.length === 0) {
             showProfitRecordError('暂无收益记录数据');
             return;
@@ -1765,14 +1756,14 @@ function showProfitRecordError(message) {
         <div class="modal-content" style="max-width: 400px;">
             <div class="modal-header">
                 <h3>⚠️ 无法显示收益记录</h3>
-                <span class="close-btn" onclick="this.parentElement.parentElement.remove()">&times;</span>
+                <span class="close-btn" onclick="this.closest('.profit-record-modal').remove()">&times;</span>
             </div>
             <div class="modal-body">
                 <div style="text-align: center; padding: 20px;">
                     <div style="font-size: 3rem; margin-bottom: 16px;">📈</div>
                     <p style="color: #2c3e50; margin-bottom: 16px;">${message}</p>
                     <div style="display: flex; gap: 12px; justify-content: center; margin-top: 24px;">
-                        <button class="chart-btn" onclick="this.parentElement.parentElement.parentElement.parentElement.remove()">关闭</button>
+                        <button class="chart-btn" onclick="this.closest('.profit-record-modal').remove()">关闭</button>
                     </div>
                 </div>
             </div>
@@ -1780,6 +1771,13 @@ function showProfitRecordError(message) {
     `;
     
     document.body.appendChild(errorModal);
+    
+    // 点击背景关闭
+    errorModal.addEventListener('click', function(e) {
+        if (e.target === errorModal) {
+            errorModal.remove();
+        }
+    });
 }
 
 // 创建收益记录模态框
@@ -1828,7 +1826,7 @@ function createProfitRecordModal(profitData) {
             // 是图片URL，显示图片
             // 使用安全的HTML构建方式，避免引号问题
             const safeRankingValue = rankingValue.replace(/'/g, "\\'");
-            const safeTimeValue = timeValue.replace(/'/g, "\\'");
+            const safeTimeValue = String(timeValue).replace(/'/g, "\\'");
             
             return `
                 <div class="image-cell">
