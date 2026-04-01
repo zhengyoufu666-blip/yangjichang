@@ -1297,15 +1297,13 @@ function closePieChartModal() {
 
 
 
-// 获取数据（支持静默后台模式）
-async function fetchData(retryCount = 0, silent = false) {
+// 获取数据
+async function fetchData(retryCount = 0) {
     const maxRetries = 3;
     const now = Date.now();
     
-    // 静默模式不显示加载状态
-    if (!silent) {
-        showLoadingState();
-    }
+    // 显示加载状态
+    showLoadingState();
     
     if (cachedData && (now - lastFetchTime) < CACHE_DURATION) {
         console.log('使用缓存数据');
@@ -1385,14 +1383,8 @@ async function fetchData(retryCount = 0, silent = false) {
         renderManualTable(active);  // 主动操作
         renderDisclaimer(disclaimer);
         
-        if (silent) {
-            // 陙默模式：隐藏loading后显示成功提示
-            hideLoadingState();
-            showSuccessState('网络已连接，数据已更新为最新！');
-        } else {
-            updateLoadingProgress(100, '加载完成！');
-            setTimeout(() => hideLoadingState(), 500);
-        }
+        updateLoadingProgress(100, '加载完成！');
+        setTimeout(() => hideLoadingState(), 500);
 
     } catch (error) {
         console.error('获取数据失败:', error);
@@ -1400,19 +1392,7 @@ async function fetchData(retryCount = 0, silent = false) {
         // 确保隐藏加载状态
         hideLoadingState();
         
-        // 静默模式：不显示错误提示，后台重试
-        if (silent) {
-            console.log('静默模式：网络请求失败，保持本地数据显示');
-            // 静默重试
-            if (retryCount < maxRetries) {
-                setTimeout(() => {
-                    fetchData(retryCount + 1, true);
-                }, 3000);
-            }
-            return;
-        }
-        
-        // 非静默模式：立即使用本地数据并显示错误提示
+        // 立即使用本地数据（快速降级）
         console.log('API请求失败，立即使用本地数据');
         useLocalData();
         
@@ -1432,87 +1412,6 @@ async function fetchData(retryCount = 0, silent = false) {
             }, 3000); // 3秒后重试
         }
     }
-}
-
-// 快速加载本地数据（不显示loading，立即响应）
-function useLocalDataQuick() {
-    console.log('快速加载本地数据...');
-    
-    // 更新缓存
-    cachedData = {
-        dca: LOCAL_DCA_DATA,
-        active: LOCAL_ACTIVE_DATA,
-        disclaimer: LOCAL_DISCLAIMER,
-        dailyNote: "正在检查网络连接...",
-        profitRecord: [] // 先设为空，后台获取时会更新
-    };
-    lastFetchTime = Date.now();
-    
-    // 渲染本地数据
-    if (sortState.direction && (sortState.column === 'percentage' || sortState.column === 'cumulative' || sortState.column === 'dailyReturn')) {
-        renderDCATableWithSort(LOCAL_DCA_DATA);
-    } else {
-        renderDCATable(LOCAL_DCA_DATA);
-    }
-    renderManualTable(LOCAL_ACTIVE_DATA);
-    renderDisclaimer(LOCAL_DISCLAIMER);
-    
-    // 显示"正在检查网络"提示（右上角小图标）
-    showCheckingNetworkNotice();
-}
-
-// 显示"正在检查网络"提示
-function showCheckingNetworkNotice() {
-    // 移除已存在的提示
-    const existingNotice = document.querySelector('.checking-network-notice');
-    if (existingNotice) {
-        existingNotice.remove();
-    }
-    
-    const notice = document.createElement('div');
-    notice.className = 'checking-network-notice';
-    notice.style.cssText = `
-        position: fixed;
-        top: 10px;
-        right: 10px;
-        background: linear-gradient(135deg, #3b82f6,0%, #1d4ed8 100%);
-        color: white;
-        padding: 8px 16px;
-        border-radius: 20px;
-        font-size: 12px;
-        z-index: 10000;
-        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        animation: pulse 2s infinite;
-    `;
-    notice.innerHTML = `
-        <span class="spinner"></span>
-        <span>正在检查网络连接...</span>
-    `;
-    document.body.appendChild(notice);
-    
-    // 添加spinner动画样式
-    const style = document.createElement('style');
-    style.textContent = `
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-        .spinner {
-            width: 12px;
-            height: 12px;
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-top-color: white;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-    `;
-    document.head.appendChild(style);
 }
 
 // 使用本地数据
@@ -3440,21 +3339,22 @@ function addExportButton() {
 
 // 页面加载完成后执行
 document.addEventListener('DOMContentLoaded', () => {
-    // 立即加载本地数据（快速响应）
-    console.log('立即加载本地数据...');
-    useLocalDataQuick();
+    console.log('🚀 养鸡场基金系统开始加载...');
+    console.log('📊 配置信息:');
+    console.log('  - API URL:', GOOGLE_SHEET_API_URL);
+    console.log('  - 缓存时间:', CACHE_DURATION / 1000, '秒');
+    console.log('  - 当前时间:', new Date().toLocaleString());
     
-    // 同时在后台尝试连接Google Sheets
-    setTimeout(() => {
-        fetchData(0, true).finally(() => {
-            // 无论数据加载成功与否
-            // 都尝试获取估值
-            setTimeout(() => {
-                refreshValuationsOnLoad();
-            }, 1000);
-        });
-    }, 100);
-});
+    // 添加导出按钮
+    addExportButton();
+    
+    // 直接加载数据
+    fetchData().finally(() => {
+        // 无论数据加载成功与否，都尝试获取估值
+        setTimeout(() => {
+            refreshValuationsOnLoad();
+        }, 1000);
+    });
     
 
 });
