@@ -48,7 +48,6 @@
                         </button>
                         <button class="profit-btn" onclick="showProfitRecord()">📈 收益记录</button>
                         <button class="chart-btn" onclick="showPieChart()">📊 持仓饼图</button>
-                        <button class="friends-btn" onclick="showFriendsZone()">👥 朋友专场</button>
                     </div>
                 </div>
                 <div class="table-container">
@@ -61,6 +60,7 @@
                                 <th class="sortable hidden-column" data-column="dailyReturn" onclick="sortTable('dailyReturn')">近6月回报 <span class="sort-icon">↕</span></th>
                                 <th>参考日估值</th>
                                 <th class="sortable" data-column="percentage" onclick="sortTable('percentage')">持仓占比 <span class="sort-icon">↕</span></th>
+                                <th>金额</th>
                                 <th>操作</th>
                                 <th class="sortable hidden-column" data-column="cumulative" onclick="sortTable('cumulative')">累计收益 <span class="sort-icon">↕</span></th>
                                 <th class="hidden-column">日限购</th>
@@ -68,7 +68,7 @@
                             </tr>
                         </thead>
                         <tbody id="dca-body">
-                            <tr class="loading-row"><td colspan="10">
+                            <tr class="loading-row"><td colspan="11">
                                 <div class="loading-content">
                                     <div class="loading-spinner"></div>
                                     <span>正在加载数据...</span>

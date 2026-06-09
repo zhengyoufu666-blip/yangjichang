@@ -16,19 +16,6 @@ let sortState = {
     direction: null // null: 默认, 'asc': 升序, 'desc': 降序
 };
 
-// 朋友专场基金代码配置
-const FRIENDS_ZONE_FUNDS = [
-    '012863',
-    '002834', 
-    '019414',
-    '013478',
-    '018463',
-    '008182',
-    '015790',
-    '002207',
-    '024329'
-];
-
 // 解析单行 CSV
 function parseCSVLine(line) {
     const result = [];
@@ -460,7 +447,7 @@ function renderDCATable(data) {
     const tbody = document.getElementById('dca-body');
 
     if (!data || data.length === 0) {
-        tbody.innerHTML = '<tr class="empty-state"><td colspan="9">暂无定投记录</td></tr>';
+        tbody.innerHTML = '<tr class="empty-state"><td colspan="10">暂无定投记录</td></tr>';
         return;
     }
 
@@ -521,6 +508,7 @@ function generateDCATableRow(row) {
             </div>
         </td>
         <td><strong>${formatPercentage(percentage)}</strong></td>
+        <td>${formatCurrency(row['金额'])}</td>
         <td>
             <span class="operation-tag ${bgClass}">
                 ${row['操作'] || row['操作'] || '-'}
@@ -667,7 +655,7 @@ function renderDCATableWithSort(data) {
     const tbody = document.getElementById('dca-body');
 
     if (!data || data.length === 0) {
-        tbody.innerHTML = '<tr class="empty-state"><td colspan="9">暂无定投记录</td></tr>';
+        tbody.innerHTML = '<tr class="empty-state"><td colspan="10">暂无定投记录</td></tr>';
         return;
     }
 
@@ -747,23 +735,23 @@ function showPieChart() {
             return;
         }
         
-        // 计算各基金的持仓金额
-        const fundData = calculateFundAllocation(cachedData.dca);
+        // 计算各分类的持仓占比（按分类聚合）
+        const categoryData = calculateCategoryAllocation(cachedData.dca);
         
-        if (!fundData || fundData.length === 0) {
+        if (!categoryData || categoryData.length === 0) {
             showPieChartError('暂无有效持仓数据，请检查数据格式');
             return;
         }
         
         // 检查数据有效性
-        const validFunds = fundData.filter(fund => fund.percentage > 0);
-        if (validFunds.length === 0) {
-            showPieChartError('所有基金的持仓占比都为0，无法生成饼图');
+        const validCategories = categoryData.filter(cat => cat.percentage > 0);
+        if (validCategories.length === 0) {
+            showPieChartError('所有分类的持仓占比都为0，无法生成饼图');
             return;
         }
         
         // 创建饼图弹窗
-        createPieChartModal(validFunds);
+        createPieChartModal(validCategories);
         
     } catch (error) {
         console.error('显示饼图失败:', error);
@@ -935,83 +923,141 @@ function calculateFundAllocation(data) {
     return result.sort((a, b) => b.percentage - a.percentage);
 }
 
-// 创建饼图弹窗 - 新版友好界面
-function createPieChartModal(fundData) {
+// 计算分类持仓分配（按分类聚合，而非单个基金）
+function calculateCategoryAllocation(data) {
+    const categoryMap = new Map();
+    
+    // 先计算总金额
+    const totalAmount = data.reduce((sum, row) => {
+        const amountStr = row['金额'] || '0';
+        const amount = parseFloat(amountStr.toString().replace(/[^\d.-]/g, '')) || 0;
+        return sum + amount;
+    }, 0);
+    
+    if (totalAmount === 0) return [];
+    
+    data.forEach(row => {
+        const category = (row['分类'] || row['category'] || '').trim();
+        if (!category) return; // 跳过空分类
+        
+        const amountStr = row['金额'] || '0';
+        const amount = parseFloat(amountStr.toString().replace(/[^\d.-]/g, '')) || 0;
+        if (amount <= 0) return;
+        
+        if (categoryMap.has(category)) {
+            const existing = categoryMap.get(category);
+            existing.totalAmount += amount;
+            existing.fundCount += 1;
+            existing.funds.push({
+                name: row['基金名称'] || '',
+                code: row['基金代码'] || '',
+                amount: amount
+            });
+        } else {
+            categoryMap.set(category, {
+                name: category,
+                totalAmount: amount,
+                fundCount: 1,
+                funds: [{
+                    name: row['基金名称'] || '',
+                    code: row['基金代码'] || '',
+                    amount: amount
+                }]
+            });
+        }
+    });
+    
+    const result = Array.from(categoryMap.values()).map(cat => ({
+        name: cat.name,
+        percentage: (cat.totalAmount / totalAmount * 100),
+        totalAmount: cat.totalAmount,
+        fundCount: cat.fundCount,
+        funds: cat.funds
+    }));
+    
+    // 按占比降序排序
+    return result.sort((a, b) => b.percentage - a.percentage);
+}
+
+// 创建饼图弹窗 - 新版友好界面（按分类展示）
+function createPieChartModal(categoryData) {
     // 创建模态框
     const modal = document.createElement('div');
     modal.className = 'pie-chart-modal';
     
-    // 生成基金颜色
-    const fundColors = generateColors(fundData.length);
+    // 生成分类颜色
+    const categoryColors = generateColors(categoryData.length);
     
-    // 计算基金饼图路径
-    const fundPieSlices = calculatePieSlices(fundData);
+    // 计算饼图路径
+    const pieSlices = calculatePieSlices(categoryData);
     
-    // 计算操作分类数据
-    const operationData = calculateOperationDistribution(cachedData.dca);
+    // 计算总金额
+    const totalAmount = categoryData.reduce((sum, cat) => sum + (cat.totalAmount || 0), 0);
     
     modal.innerHTML = `
         <div class="modal-content">
             <div class="modal-header">
-                <h3>📊 基金持仓分布</h3>
+                <h3>📊 分类持仓分布</h3>
                 <span class="close-btn" onclick="closePieChartModal()">&times;</span>
             </div>
             <div class="modal-body">
                 <div class="chart-with-legend">
                     <div class="chart-container">
-                        <h4>基金持仓分布</h4>
+                        <h4>分类持仓占比</h4>
                         <div class="chart-wrapper">
                             <svg width="350" height="350" viewBox="0 0 350 350" class="pie-chart">
-                                ${fundPieSlices.map((slice, index) => `
+                                ${pieSlices.map((slice, index) => `
                                     <g class="pie-slice fund-slice" data-index="${index}">
                                         <path d="${slice.path}" 
-                                              fill="${fundColors[index]}" stroke="white" stroke-width="2"
+                                              fill="${categoryColors[index]}" stroke="white" stroke-width="2"
                                               onmouseover="showFundTooltip(${index}, event)"
                                               onmouseout="hideFundTooltip()">
                                         </path>
                                     </g>
                                 `).join('')}
-                                ${fundData.map((fund, index) => {
-                                    const labelAngle = fundPieSlices[index].middleAngle;
+                                ${categoryData.map((cat, index) => {
+                                    const labelAngle = pieSlices[index].middleAngle;
                                     const labelX = 175 + Math.cos(labelAngle) * 110;
                                     const labelY = 175 + Math.sin(labelAngle) * 110;
                                     return `
                                         <text x="${labelX}" y="${labelY}" text-anchor="middle" 
                                               class="pie-label" fill="white" font-weight="bold" font-size="11">
-                                            ${fund.percentage.toFixed(1)}%
+                                            ${cat.percentage.toFixed(1)}%
                                         </text>
                                     `;
                                 }).join('')}
-                                <!-- 中心文字 -->
                                 <text x="175" y="175" text-anchor="middle" class="center-text" fill="#2c3e50" font-weight="bold" font-size="16">
-                                    持仓分布
+                                    分类分布
                                 </text>
                                 <text x="175" y="195" text-anchor="middle" class="center-subtext" fill="#6c757d" font-size="12">
-                                    ${fundData.length} 只基金
+                                    ${categoryData.length} 个分类
                                 </text>
                             </svg>
                         </div>
                     </div>
                     
                     <div class="legend-container">
-                        <h4>基金明细 <span class="legend-count">(${fundData.length})</span></h4>
+                        <h4>分类明细 <span class="legend-count">(${categoryData.length})</span></h4>
                         <div class="legend-scroll">
-                            ${fundData.map((fund, index) => `
+                            ${categoryData.map((cat, index) => `
                                 <div class="legend-item" onmouseover="highlightPieSlice(${index})" onmouseout="unhighlightPieSlice()">
                                     <span class="legend-rank">${index + 1}</span>
-                                    <span class="legend-color" style="background-color: ${fundColors[index]}"></span>
+                                    <span class="legend-color" style="background-color: ${categoryColors[index]}"></span>
                                     <div class="legend-info">
-                                        <div class="legend-name">${fund.name}</div>
-                                        <div class="legend-code">${fund.code}</div>
+                                        <div class="legend-name">${cat.name}</div>
+                                        <div class="legend-code">${cat.fundCount} 只基金</div>
                                     </div>
                                     <div class="legend-percentage">
                                         <div class="percentage-bar">
-                                            <div class="percentage-fill" style="width: ${fund.percentage}%"></div>
+                                            <div class="percentage-fill" style="width: ${cat.percentage}%"></div>
                                         </div>
-                                        <span class="percentage-value">${fund.percentage.toFixed(1)}%</span>
+                                        <span class="percentage-value">${cat.percentage.toFixed(1)}%</span>
                                     </div>
                                 </div>
                             `).join('')}
+                        </div>
+                        <div class="legend-total">
+                            总计: ${formatCurrency(totalAmount)}
                         </div>
                     </div>
                 </div>
@@ -1020,10 +1066,8 @@ function createPieChartModal(fundData) {
         <div class="tooltip" id="fund-tooltip" style="display: none;"></div>
     `;
     
-    // 添加到页面
     document.body.appendChild(modal);
     
-    // 点击背景关闭
     modal.addEventListener('click', function(e) {
         if (e.target === modal) {
             closePieChartModal();
@@ -1467,7 +1511,7 @@ function showLoadingState() {
     
     if (dcaBody) {
         dcaBody.innerHTML = `
-            <tr class="loading-row"><td colspan="9">
+            <tr class="loading-row"><td colspan="10">
                 <div class="loading-content">
                     <div class="loading-spinner"></div>
                     <div class="loading-progress">
@@ -1609,7 +1653,7 @@ function showErrorState(message) {
     
     if (dcaBody) {
         dcaBody.innerHTML = `
-            <tr class="error-state"><td colspan="9">
+            <tr class="error-state"><td colspan="10">
                 <div class="error-content">
                     <div class="error-icon">⚠️</div>
                     <div class="error-message">${message}</div>
@@ -1701,7 +1745,7 @@ function hideLoadingState() {
     if (dcaBody && dcaBody.querySelector('.loading-row')) {
         // 如果数据还未渲染，显示空状态
         if (!cachedData || !cachedData.dca || cachedData.dca.length === 0) {
-            dcaBody.innerHTML = '<tr class="empty-state"><td colspan="9">暂无数据</td></tr>';
+            dcaBody.innerHTML = '<tr class="empty-state"><td colspan="10">暂无数据</td></tr>';
         }
     }
     
@@ -3006,210 +3050,6 @@ async function refreshValuationsOnLoad() {
 }
 
 
-
-// 朋友专场相关函数
-
-// 显示朋友专场模态框
-function showFriendsZone() {
-    try {
-        console.log('🔄 开始加载朋友专场...');
-        
-        // 创建朋友专场模态框
-        createFriendsZoneModal();
-        
-        // 加载基金数据
-        loadFriendsZoneData();
-        
-    } catch (error) {
-        console.error('显示朋友专场失败:', error);
-        showFriendsZoneError(`显示朋友专场时出错: ${error.message}`);
-    }
-}
-
-// 创建朋友专场模态框
-function createFriendsZoneModal() {
-    // 创建模态框
-    const modal = document.createElement('div');
-    modal.className = 'friends-zone-modal';
-    modal.id = 'friends-zone-modal';
-    
-    modal.innerHTML = `
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>👥 朋友专场</h3>
-                <span class="close-btn" onclick="closeFriendsZoneModal()">&times;</span>
-            </div>
-            <div class="modal-body">
-                <div class="table-container">
-                    <table class="friends-zone-table">
-                        <thead>
-                            <tr>
-                                <th>基金代码</th>
-                                <th>基金名称</th>
-                                <th>参考日估值</th>
-                            </tr>
-                        </thead>
-                        <tbody id="friends-zone-tbody">
-                            <tr class="loading-row">
-                                <td colspan="3">
-                                    <div class="loading-content">
-                                        <div class="loading-spinner"></div>
-                                        <span>正在加载朋友专场数据...</span>
-                                    </div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    document.body.appendChild(modal);
-    
-    // 点击背景关闭
-    modal.addEventListener('click', function(e) {
-        if (e.target === modal) {
-            closeFriendsZoneModal();
-        }
-    });
-}
-
-// 加载朋友专场数据
-async function loadFriendsZoneData() {
-    const tbody = document.getElementById('friends-zone-tbody');
-    if (!tbody) return;
-    
-    console.log('📊 开始获取朋友专场基金数据...');
-    
-    const friendsFunds = [];
-    let successCount = 0;
-    let failCount = 0;
-    
-    // 为每个基金代码获取数据
-    for (const fundCode of FRIENDS_ZONE_FUNDS) {
-        try {
-            console.log(`🔄 正在获取基金 ${fundCode} 数据...`);
-            
-            // 获取基金估值数据
-            const result = await jsonpManager.request(fundCode, 'valuation');
-            
-            if (result.success) {
-                const fundData = result.rawData;
-                friendsFunds.push({
-                    code: fundCode,
-                    name: fundData.name || '基金名称获取中...',
-                    valuation: result.value || '-',
-                    className: result.className || '',
-                    date: result.date || '',
-                    rawData: fundData
-                });
-                successCount++;
-                console.log(`✅ ${fundCode} 数据获取成功`);
-            } else {
-                friendsFunds.push({
-                    code: fundCode,
-                    name: '数据获取失败',
-                    valuation: '-',
-                    className: 'valuation-normal',
-                    date: '',
-                    rawData: null
-                });
-                failCount++;
-                console.log(`❌ ${fundCode} 数据获取失败`);
-            }
-            
-            // 稍微延迟，避免请求过快
-            await new Promise(resolve => setTimeout(resolve, 200));
-            
-        } catch (error) {
-            console.error(`获取基金 ${fundCode} 数据失败:`, error);
-            friendsFunds.push({
-                code: fundCode,
-                name: '网络错误',
-                valuation: '-',
-                className: 'valuation-normal',
-                date: '',
-                rawData: null
-            });
-            failCount++;
-        }
-    }
-    
-    // 渲染朋友专场表格
-    renderFriendsZoneTable(friendsFunds);
-    
-    console.log(`📊 朋友专场数据加载完成 (成功: ${successCount}, 失败: ${failCount})`);
-}
-
-// 渲染朋友专场表格
-function renderFriendsZoneTable(friendsFunds) {
-    const tbody = document.getElementById('friends-zone-tbody');
-    if (!tbody || !friendsFunds || friendsFunds.length === 0) {
-        tbody.innerHTML = '<tr class="empty-state"><td colspan="3">暂无朋友专场数据</td></tr>';
-        return;
-    }
-    
-    tbody.innerHTML = friendsFunds.map(fund => {
-        return `
-            <tr data-fund-code="${fund.code}">
-                <td><code class="fund-code">${fund.code}</code></td>
-                <td>${fund.name}</td>
-                <td class="valuation-cell">
-                    <div class="valuation-container">
-                        <span class="valuation-value ${fund.className}">${fund.valuation}</span>
-                        ${fund.date ? `<span class="valuation-date">${fund.date}</span>` : ''}
-                    </div>
-                </td>
-            </tr>
-        `;
-    }).join('');
-}
-
-// 关闭朋友专场模态框
-function closeFriendsZoneModal() {
-    const modal = document.getElementById('friends-zone-modal');
-    if (modal) {
-        modal.remove();
-    }
-}
-
-// 显示朋友专场错误提示
-function showFriendsZoneError(message) {
-    const errorModal = document.createElement('div');
-    errorModal.className = 'friends-zone-modal';
-    errorModal.innerHTML = `
-        <div class="modal-content" style="max-width: 400px;">
-            <div class="modal-header">
-                <h3>⚠️ 朋友专场加载失败</h3>
-                <span class="close-btn" onclick="this.parentElement.parentElement.remove()">&times;</span>
-            </div>
-            <div class="modal-body">
-                <div style="text-align: center; padding: 20px;">
-                    <div style="font-size: 3rem; margin-bottom: 16px;">👥</div>
-                    <p style="color: #2c3e50; margin-bottom: 16px;">${message}</p>
-                    <div style="display: flex; gap: 12px; justify-content: center; margin-top: 24px;">
-                        <button class="friends-btn" onclick="showFriendsZone(); this.parentElement.parentElement.parentElement.parentElement.remove()">
-                            🔄 重新加载
-                        </button>
-                        <button class="chart-btn" onclick="this.parentElement.parentElement.parentElement.parentElement.remove()">
-                            关闭
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    document.body.appendChild(errorModal);
-    
-    // 点击背景关闭
-    errorModal.addEventListener('click', function(e) {
-        if (e.target === errorModal) {
-            errorModal.remove();
-        }
-    });
-}
 
 // 导出当前数据到本地文件
 function exportToLocalFile() {
